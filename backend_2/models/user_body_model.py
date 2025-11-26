@@ -6,6 +6,9 @@ from sqlalchemy.engine import Connection
 # 공통 update_record 함수 import
 from .helpers import update_record
 
+# tables에 정의된 db의 테이블 불러오기
+from .tables import USER_BODY_TABLE
+
 # -----------------------------
 # user_body_info 조회 함수
 # -----------------------------
@@ -17,7 +20,7 @@ def get_body_info(db: Connection, user_id: int):
     반환: dict 형태의 사용자 신체 정보 또는 None
     """
     return db.execute(
-        text("SELECT * FROM testing.user_body_info WHERE user_id = :uid"),  # SQL 문자열
+        text(f"SELECT * FROM {USER_BODY_TABLE} WHERE user_id = :uid"),  # SQL 문자열
         {"uid": user_id}  # 바인딩 파라미터
     ).mappings().first()  # dict 형태로 반환
 
@@ -36,7 +39,7 @@ def insert_body_info(db: Connection, user_id: int, height_cm: float, weight_kg: 
     """
     db.execute(
         text("""
-        INSERT INTO testing.user_body_info 
+        INSERT INTO {USER_BODY_TABLE} 
         (user_id, height_cm, weight_kg, bmi, pain)
         VALUES (:user_id, :height_cm, :weight_kg, :bmi, :pain)
         """),
@@ -61,7 +64,7 @@ def update_body_info(db: Connection, user_id: int, fields: dict, insert_if_missi
     """
     update_record(
         db,
-        table="testing.user_body_info",  # 테이블 이름
+        table=USER_BODY_TABLE,           # 테이블 이름
         user_id=user_id,                 # 대상 사용자 ID
         fields=fields,                   # 업데이트할 필드
         json_keys=["pain"],              # JSON 변환할 필드

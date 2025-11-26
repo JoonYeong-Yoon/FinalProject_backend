@@ -2,6 +2,9 @@
 # 문자열 기반 SQL 문을 실행할 때 사용
 from sqlalchemy import text
 
+# tables에 정의된 db의 테이블 불러오기
+from .tables import USERS_TABLE
+
 # -----------------------------
 # 구독 상태 업데이트 함수
 # -----------------------------
@@ -15,7 +18,7 @@ def set_subscription(db, email: str, subscribed: bool):
     # 1. UPDATE SQL 실행
     # email을 기준으로 해당 사용자의 is_subscribed 컬럼 값을 변경
     db.execute(
-        text("UPDATE testing.users SET is_subscribed = :s WHERE email = :email"),
+        text(f"UPDATE {USERS_TABLE} SET is_subscribed = :s WHERE email = :email"),
         {"email": email, "s": subscribed}  # 바인딩 파라미터
     )
 

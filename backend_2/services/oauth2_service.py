@@ -8,7 +8,9 @@ from fastapi.security import OAuth2PasswordBearer
 
 # DB 연결 import
 from db.database import get_db
-from sqlalchemy import text
+
+# 모델 import
+from models.users_model import get_user_by_email
 
 # 설정 import
 from config.settings import settings
@@ -62,16 +64,13 @@ def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_db)):
             detail="잘못된 또는 만료된 토큰입니다."
         )
 
-    # 2. DB 조회: 이메일로 사용자 정보 확인
-    result = db.execute(
-        text("SELECT id, email, name FROM testing.users WHERE email = :email"),
-        {"email": email}
-    ).mappings().first()
-
-    if not result:
+    # 2. DB 조회: 이메일로 사용자 정보 확인 (모델 함수 사용)
+    user = get_user_by_email(db, email)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="사용자를 찾을 수 없습니다."
         )
 
-    return result  # id, email, name 반환
+    # 3. 필요한 필드만 반환
+    return {"id": user["id"], "email": user["email"], "name": user["name"]}

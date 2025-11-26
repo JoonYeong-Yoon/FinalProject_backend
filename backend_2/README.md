@@ -66,22 +66,39 @@
 
 * users 테이블의 is_subscribed 필드 관리
 * 구독 상태 변경
+* `tables.py`의 `users` 객체 사용 가능
+
+#### `tables.py`
+
+* DB 테이블 스키마 정의
+* SQLAlchemy `Table` 객체로 각 테이블 정의
+* 기존 모델에서 사용되는 테이블 구조를 중앙 관리
+* 예: `users`, `user_info`, `user_body_info` 테이블 정의
+* 모든 모델(`users_model.py`, `user_info_model.py` 등)은 이 테이블 객체를 import하여 사용
+* **장점**
+  * 테이블 구조 변경 시 중앙에서 관리 가능
+  * SQLAlchemy Core 또는 ORM 활용 가능
+* **단점**
+  * 소규모 프로젝트에서는 모델과 테이블 정의가 분리되어 있어 관리가 약간 번거로울 수 있음
 
 #### `user_body_model.py`
 
 * user_body_info 테이블 CRUD
 * 키, 몸무게, BMI, 통증 정보 등
+* `tables.py`의 `user_body_info` 객체 사용
 
 #### `user_info_model.py`
 
 * user_info 테이블 CRUD
 * 개인 정보, 활동, 선호 정보 등 관리
 * `update_record` 헬퍼 사용 가능
+* `tables.py`의 `user_info` 객체 사용
 
 #### `users_model.py`
 
 * users 테이블 CRUD
 * 이메일/ID 조회, 생성, 업데이트, 삭제
+* `tables.py`의 `users` 객체 사용
 
 ---
 
@@ -160,6 +177,7 @@ AI-Trainer-Backend/
 │  ├─ __init__.py
 │  ├─ helpers.py
 │  ├─ subscription_model.py
+│  ├─ tables.py
 │  ├─ user_body_model.py
 │  ├─ user_info_model.py
 │  └─ users_model.py
@@ -189,3 +207,4 @@ AI-Trainer-Backend/
 > * 새로운 개발자가 프로젝트 구조를 빠르게 이해할 수 있음
 > * 각 폴더, 파일의 역할 명확화
 > * 패키지 사용 방법과 import 관례 이해 도움
+> * `tables.py`를 활용하면 테이블 변경 시 중앙에서 관리 가능

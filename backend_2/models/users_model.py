@@ -2,6 +2,9 @@
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+# tables에 정의된 db의 테이블 불러오기
+from .tables import USERS_TABLE
+
 # -----------------------------
 # 이메일로 사용자 조회
 # -----------------------------
@@ -13,7 +16,7 @@ def get_user_by_email(db: Connection, email: str):
     반환: dict 형태의 사용자 정보 또는 None
     """
     row = db.execute(
-        text("SELECT * FROM testing.users WHERE email = :email"),
+        text(f"SELECT * FROM {USERS_TABLE} WHERE email = :email"),
         {"email": email}  # 바인딩 파라미터
     ).mappings().first()  # dict 형태로 변환
     return dict(row) if row else None
@@ -29,7 +32,7 @@ def get_user_by_id(db: Connection, user_id: str):
     반환: dict 형태의 사용자 정보 또는 None
     """
     row = db.execute(
-        text("SELECT * FROM testing.users WHERE id = :id"),
+        text(f"SELECT * FROM {USERS_TABLE} WHERE id = :id"),
         {"id": user_id}  # 바인딩 파라미터
     ).mappings().first()
     return dict(row) if row else None
@@ -49,7 +52,7 @@ def insert_user(db, email, name, password_hash, goal=None):
     """
     result = db.execute(
         text("""
-            INSERT INTO testing.users (email, name, password_hash, goal)
+            INSERT INTO {USERS_TABLE} (email, name, password_hash, goal)
             VALUES (:email, :name, :password, :goal)
             RETURNING id
         """),
@@ -73,7 +76,7 @@ def update_user(db: Connection, user_id: str, fields: dict):
     params = fields.copy()
     params["id"] = user_id  # WHERE 조건용 ID
     db.execute(
-        text(f"UPDATE testing.users SET {set_clause} WHERE id = :id"),
+        text(f"UPDATE {USERS_TABLE} SET {set_clause} WHERE id = :id"),
         params
     )
     db.commit()  # DB 반영
@@ -88,7 +91,7 @@ def delete_user(db: Connection, user_id: str):
     - user_id: 삭제할 사용자 ID
     """
     db.execute(
-        text("DELETE FROM testing.users WHERE id = :id"),
+        text(f"DELETE FROM {USERS_TABLE} WHERE id = :id"),
         {"id": user_id}
     )
     db.commit()

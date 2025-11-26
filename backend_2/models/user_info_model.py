@@ -6,6 +6,9 @@ from sqlalchemy.engine import Connection
 # 공통 update_record 함수 import
 from .helpers import update_record
 
+# tables에 정의된 db의 테이블 불러오기
+from .tables import USER_INFO_TABLE
+
 # -----------------------------
 # user_info 조회 함수
 # -----------------------------
@@ -17,7 +20,7 @@ def get_user_info(db: Connection, user_id: int):
     반환: dict 형태의 사용자 정보 또는 None
     """
     return db.execute(
-        text("SELECT * FROM testing.user_info WHERE user_id = :uid"),  # SQL문
+        text(f"SELECT * FROM {USER_INFO_TABLE} WHERE user_id = :uid"),  # SQL문
         {"uid": user_id}  # 바인딩 파라미터
     ).mappings().first()  # dict 형태로 반환
 
@@ -35,7 +38,7 @@ def insert_user_info(db: Connection, user_id: int, dailytime=None, weekly=None,
     """
     db.execute(
         text("""
-            INSERT INTO testing.user_info
+            INSERT INTO {USER_INFO_TABLE}
             (user_id, dailytime, weekly, activity, targetperiod, intro, prefer)
             VALUES (:user_id, :dailytime, :weekly, :activity, :targetperiod, :intro, :prefer)
         """),
@@ -69,7 +72,7 @@ def update_user_info(db: Connection, user_id: int, fields: dict, insert_if_missi
     # 공통 update_record 사용
     update_record(
         db,
-        table="testing.user_info",             # 테이블 이름
+        table=USER_INFO_TABLE,             # 테이블 이름
         user_id=user_id,                        # 대상 사용자 ID
         fields=fields,                          # 업데이트할 필드
         json_keys=["prefer"],                   # JSON 변환할 필드
