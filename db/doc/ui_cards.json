@@ -1,0 +1,104 @@
+{
+  "user": {
+    "initials": "Y.L.",
+    "goal": "근력",
+    "target_kcal": 500,
+    "weight_kg": 75
+  },
+  "cards": [
+    {
+      "id": "optimal",
+      "title": "최적 추천 (근력 + 체형 균형)",
+      "subtitle": "60–70분",
+      "estimated_kcal": "약 395 kcal (추가 조정으로 500 kcal 목표 달성 가능)",
+      "exercises": [
+        {
+          "name": "푸시업 (Push-up)",
+          "sets_reps": "4세트 × 12회",
+          "time": "12min"
+        },
+        {
+          "name": "힙 쓰러스트 (Hip Thrust)",
+          "sets_reps": "4세트 × 15회",
+          "time": "12min"
+        },
+        {
+          "name": "플랭크 (Plank)",
+          "sets_reps": "4세트 × 45초",
+          "time": "10min"
+        },
+        {
+          "name": "바이시클 크런치 (Bicycle Crunch)",
+          "sets_reps": "4세트 × 20회",
+          "time": "10min"
+        },
+        {
+          "name": "스텝 백워드 다이나믹 런지 (Step Backward Dynamic Lunge)",
+          "sets_reps": "4세트 × 12회(좌우)",
+          "time": "12min"
+        }
+      ]
+    },
+    {
+      "id": "similar",
+      "title": "유사 사용자 추천 (꾸준함·유지)",
+      "subtitle": "55–65분",
+      "estimated_kcal": "약 345 kcal",
+      "exercises": [
+        {
+          "name": "힙 쓰러스트 (Hip Thrust)",
+          "sets_reps": "4세트 × 15회",
+          "time": "10min"
+        },
+        {
+          "name": "푸시업 (Push-up)",
+          "sets_reps": "4세트 × 10–12회",
+          "time": "10min"
+        },
+        {
+          "name": "플랭크 (Plank)",
+          "sets_reps": "4세트 × 40초",
+          "time": "10min"
+        },
+        {
+          "name": "굿모닝 (Good Morning)",
+          "sets_reps": "4세트 × 12회",
+          "time": "10min"
+        },
+        {
+          "name": "크런치 (Crunch)",
+          "sets_reps": "4세트 × 15회",
+          "time": "10min"
+        }
+      ]
+    },
+    {
+      "id": "goal_priority",
+      "title": "목표 우선 루틴 (500kcal 달성 우선)",
+      "subtitle": "65–75분",
+      "estimated_kcal": "약 487 kcal (약간 조정 시 500 kcal 달성)",
+      "exercises": [
+        {
+          "name": "버피 (Burpee)",
+          "sets_reps": "6세트 × 2분 (인터벌)",
+          "time": "20min"
+        },
+        {
+          "name": "푸시업 (Push-up)",
+          "sets_reps": "5세트 × 12회",
+          "time": "15min"
+        },
+        {
+          "name": "플랭크 (Plank)",
+          "sets_reps": "5세트 × 50초",
+          "time": "12min"
+        },
+        {
+          "name": "힙 쓰러스트 (Hip Thrust)",
+          "sets_reps": "5세트 × 15회",
+          "time": "13min"
+        }
+      ]
+    }
+  ]
+}

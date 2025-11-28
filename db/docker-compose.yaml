@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: home_training # 수정된 컨테이너 이름
+    restart: always
+
+    # 환경 변수 통합
+    environment:
+      POSTGRES_USER: user           # DB 로그인 ID (user)
+      POSTGRES_PASSWORD: password   # DB 비밀번호 (password)
+      POSTGRES_DB: home_training_db # 기본 생성 DB 이름 (home_training_db)
+      TZ: "Asia/Seoul"              # 타임존 설정
+
+    # PostgreSQL 포트 매핑
+    ports:
+      - "5432:5432"
+
+    # 볼륨 설정
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+    # 로그 설정
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+        # docker-compose.yaml에 추가
+
+  api: # 새로 추가되는 서비스
+    build: . # 현재 디렉토리에 있는 Dockerfile을 사용 (Dockerfiel은 별도 생성 필요)
+    container_name: home_training_api
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000" # FastAPI 포트
+    depends_on:
+      - db
+    environment:
+      # DB_HOST를 Docker Compose 서비스 이름 'db'로 설정
+      DB_HOST: db 
+      # 필요한 환경 변수 추가

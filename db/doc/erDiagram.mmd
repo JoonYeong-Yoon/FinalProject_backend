@@ -1,0 +1,240 @@
+erDiagram
+    %% 관계 정의
+    users ||--o{ user_body_info : "생체정보_보유"
+    users ||--o{ subscriptions : "구독_중"
+    users ||--o{ payment_history : "결제_내역_보유"
+    users ||--o{ wearable_data : "웨어러블_동기화"
+    users ||--o{ ai_recommended_routines : "AI_루틴_요청"
+    users ||--o{ activity_logs : "운동_기록_생성"
+    users ||--o{ pose_analysis : "자세_분석_대상"
+    users ||--o{ user_routine_progress : "루틴_진행_상태"
+    users ||--o{ challenge_participation : "챌린지_참여"
+    users ||--o{ ranking : "랭킹_정보_보유"
+
+    subscription_plans ||--o{ subscriptions : "플랜_제공"
+    subscription_plans ||--o{ payment_history : "결제_플랜_대상"
+
+    routines ||--o{ routine_items : "구성_요소_포함"
+    routines ||--o{ routine_flow : "안내_단계_정의"
+    routines ||--o{ user_routine_progress : "진행_대상"
+
+    ai_recommended_routines ||--o{ ai_routine_items : "AI_구성_요소_포함"
+
+    activity_logs ||--o{ activity_detail_logs : "상세_활동_기록"
+    routines ||--o{ activity_logs : "표준_루틴_기반"
+    ai_recommended_routines ||--o{ activity_logs : "AI_루틴_기반"
+
+    exercise ||--o{ routine_items : "표준_루틴_포함"
+    exercise ||--o{ ai_routine_items : "AI_루틴_포함"
+    exercise ||--o{ activity_detail_logs : "수행된_운동"
+    exercise ||--o{ pose_analysis : "분석_대상_운동"
+    exercise ||--o{ routine_flow : "안내_대상_운동"
+
+    challenges ||--o{ challenge_participation : "참여_챌린지"
+
+    %% 엔티티 정의
+    users {
+        string id PK
+        string email UK
+        string password_hash
+        string name
+        string phone
+        date birthdate
+        string gender
+        string goal
+        int fitness_level
+        timestamp created_at
+        boolean is_active
+    }
+
+    user_body_info {
+        string id PK
+        string user_id FK
+        decimal height_cm
+        decimal weight_kg
+        decimal body_fat
+        decimal skeletal_muscle
+        decimal bmr
+        int visceral_fat_level
+        decimal water
+        decimal bmi
+        timestamp updated_at
+    }
+
+    subscription_plans {
+        string id PK
+        string name
+        decimal price
+        string description
+    }
+
+    subscriptions {
+        string id PK
+        string user_id FK
+        string plan_id FK
+        string status
+        date start_date
+        date end_date
+        date next_billing_date
+    }
+
+    payment_history {
+        string id PK
+        string user_id FK
+        string plan_id FK
+        decimal amount
+        timestamp paid_at
+        string payment_method
+        string refund_status
+    }
+
+    exercise {
+        string id PK
+        string name
+        string type
+        string posture
+        string category_1
+        string category_2
+        int difficulty
+        decimal MET
+        string description
+        string thumbnail_url
+        string video_url
+    }
+
+    routines {
+        string id PK
+        string name
+        string description
+    }
+
+    routine_items {
+        string id PK
+        string routine_id FK
+        string exercise_id FK
+        int set_count
+        int reps
+        int duration_sec
+        int rest_sec
+    }
+
+    ai_recommended_routines {
+        string id PK
+        string user_id FK
+        string goal_type
+        decimal target_value
+        string ai_model_type
+        timestamp created_at
+        decimal total_time_min
+        decimal total_calories
+    }
+
+    ai_routine_items {
+        string id PK
+        string ai_routine_id FK
+        string exercise_id FK
+        int step_number
+        int set_count
+        int reps
+        int duration_sec
+        int rest_sec
+    }
+
+    activity_logs {
+        string id PK
+        string user_id FK
+        string standard_routine_id FK
+        string ai_routine_id FK
+        timestamp start_time
+        timestamp end_time
+        string cancellation_reason
+        decimal total_time_min
+        decimal total_calories
+    }
+
+    activity_detail_logs {
+        string id PK
+        string activity_id FK
+        string exercise_id FK
+        int set_number
+        int reps_done
+        decimal score
+    }
+
+    pose_analysis {
+        string id PK
+        string user_id FK
+        string exercise_id FK
+        string frame_file_name
+        string angles_json
+        string issues_json
+        decimal score
+        string feedback_text
+        timestamp created_at
+    }
+
+    wearable_data {
+        string id PK
+        string user_id FK
+        string source
+        int steps
+        int heart_rate
+        int sleep_minutes
+        decimal calories_active
+        timestamp recorded_at
+        string raw_json
+    }
+
+    routine_flow {
+        string id PK
+        string routine_id FK
+        string exercise_id FK
+        int step_number
+        int set_count
+        int reps
+        int duration_sec
+        int rest_sec
+        string tts_script
+        string guidance_text
+    }
+
+    user_routine_progress {
+        string id PK
+        string user_id FK
+        string routine_id FK
+        int current_step
+        int current_set
+        string status
+        timestamp updated_at
+    }
+
+    challenges {
+        string id PK
+        string title
+        int period_days
+        string reward_type
+        string description
+    }
+
+    challenge_participation {
+        string id PK
+        string user_id FK
+        string challenge_id FK
+        decimal progress_percent
+        decimal score
+    }
+
+    ranking {
+        string id PK
+        string user_id FK
+        decimal score
+        int weekly_rank
+    }
+
+    algorithm_config {
+        string config_name PK
+        string config_type
+        string data
+        string description
+        timestamp updated_at
+    }

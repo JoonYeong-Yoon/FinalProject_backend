@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>피트니스 앱 ERD</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            overflow: auto;
+        }
+        .container {
+            min-width: 2400px;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #00d4ff;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .erd-canvas {
+            position: relative;
+            background: #16213e;
+            border-radius: 10px;
+            padding: 40px;
+            min-height: 2400px;
+        }
+        .table-box {
+            position: absolute;
+            background: #0f3460;
+            border: 2px solid #00d4ff;
+            border-radius: 8px;
+            min-width: 280px;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+        }
+        .table-header {
+            background: #00d4ff;
+            color: #0f3460;
+            padding: 12px;
+            font-weight: bold;
+            font-size: 16px;
+            border-radius: 6px 6px 0 0;
+        }
+        .table-body {
+            padding: 10px;
+        }
+        .field {
+            padding: 6px 10px;
+            font-size: 13px;
+            border-bottom: 1px solid #1a1a2e;
+            display: flex;
+            justify-content: space-between;
+        }
+        .field:last-child {
+            border-bottom: none;
+        }
+        .pk {
+            color: #ffd700;
+            font-weight: bold;
+        }
+        .fk {
+            color: #ff6b6b;
+        }
+        .field-name {
+            flex: 1;
+        }
+        .field-type {
+            color: #aaa;
+            font-size: 11px;
+        }
+        .legend {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #0f3460;
+            border: 2px solid #00d4ff;
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 200px;
+            z-index: 1000;
+        }
+        .legend-title {
+            color: #00d4ff;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .legend-item {
+            padding: 5px 0;
+            font-size: 13px;
+        }
+        .section-label {
+            position: absolute;
+            color: #00d4ff;
+            font-size: 20px;
+            font-weight: bold;
+            background: #16213e;
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: 2px solid #00d4ff;
+        }
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .table-box {
+            z-index: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏋️ 피트니스 앱 데이터베이스 ERD</h1>
+        
+        <div class="legend">
+            <div class="legend-title">범례</div>
+            <div class="legend-item"><span class="pk">● PK</span> - Primary Key</div>
+            <div class="legend-item"><span class="fk">● FK</span> - Foreign Key</div>
+        </div>
+
+        <div class="erd-canvas">
+            <svg id="connections"></svg>
+
+            <!-- 섹션 라벨 -->
+            <div class="section-label" style="left: 50px; top: 20px;">👤 사용자 관리</div>
+            <div class="section-label" style="left: 50px; top: 820px;">💳 구독 및 결제</div>
+            <div class="section-label" style="left: 750px; top: 20px;">🏃 운동 및 루틴</div>
+            <div class="section-label" style="left: 1450px; top: 20px;">📊 활동 기록</div>
+            <div class="section-label" style="left: 750px; top: 1200px;">🤖 AI 추천</div>
+            <div class="section-label" style="left: 1450px; top: 1200px;">🏆 챌린지 및 랭킹</div>
+
+            <!-- 사용자 관리 영역 -->
+            <div class="table-box" id="users" style="left: 50px; top: 80px;">
+                <div class="table-header">👤 users</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">email</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">password_hash</span><span class="field-type">TEXT</span></div>
+                    <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">phone</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">birthdate</span><span class="field-type">DATE</span></div>
+                    <div class="field"><span class="field-name">gender</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">goal</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">created_at</span><span class="field-type">TIMESTAMP</span></div>
+                    <div class="field"><span class="field-name">is_active</span><span class="field-type">BOOLEAN</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="user_body_info" style="left: 50px; top: 440px;">
+                <div class="table-header">📊 user_body_info</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">height_cm</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">weight_kg</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">body_fat</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">skeletal_muscle</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">bmr</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">visceral_fat_level</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">water</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">bmi</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">updated_at</span><span class="field-type">TIMESTAMP</span></div>
+                </div>
+            </div>
+
+            <!-- 구독 및 결제 영역 -->
+            <div class="table-box" id="subscription_plans" style="left: 400px; top: 880px;">
+                <div class="table-header">💳 subscription_plans</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">price</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="subscriptions" style="left: 50px; top: 880px;">
+                <div class="table-header">📋 subscriptions</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">plan_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">status</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">start_date</span><span class="field-type">DATE</span></div>
+                    <div class="field"><span class="field-name">end_date</span><span class="field-type">DATE</span></div>
+                    <div class="field"><span class="field-name">next_billing_date</span><span class="field-type">DATE</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="payment_history" style="left: 50px; top: 1150px;">
+                <div class="table-header">💰 payment_history</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">plan_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">amount</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">paid_at</span><span class="field-type">TIMESTAMP</span></div>
+                    <div class="field"><span class="field-name">payment_method</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">refund_status</span><span class="field-type">VARCHAR</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="wearable_data" style="left: 400px; top: 440px;">
+                <div class="table-header">⌚ wearable_data</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">source</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">steps</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">heart_rate</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">sleep_minutes</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">calories_active</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">recorded_at</span><span class="field-type">TIMESTAMP</span></div>
+                    <div class="field"><span class="field-name">raw_json</span><span class="field-type">JSONB</span></div>
+                </div>
+            </div>
+
+            <!-- 운동 및 루틴 영역 -->
+            <div class="table-box" id="exercise" style="left: 750px; top: 80px;">
+                <div class="table-header">🏃 exercise</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">category</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">difficulty</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                    <div class="field"><span class="field-name">video_url</span><span class="field-type">TEXT</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="routines" style="left: 750px; top: 340px;">
+                <div class="table-header">📝 routines</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="routine_items" style="left: 1100px; top: 340px;">
+                <div class="table-header">🔢 routine_items</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">routine_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">exercise_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">set_count</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">reps</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">duration_sec</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">rest_sec</span><span class="field-type">INT</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="routine_flow" style="left: 750px; top: 620px;">
+                <div class="table-header">📱 routine_flow</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">routine_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">exercise_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">step_number</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">set_count</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">reps</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">duration_sec</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">rest_sec</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">tts_script</span><span class="field-type">TEXT</span></div>
+                    <div class="field"><span class="field-name">guidance_text</span><span class="field-type">TEXT</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="user_routine_progress" style="left: 750px; top: 980px;">
+                <div class="table-header">⏱️ user_routine_progress</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">routine_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">current_step</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">current_set</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">status</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">updated_at</span><span class="field-type">TIMESTAMP</span></div>
+                </div>
+            </div>
+
+            <!-- 활동 기록 영역 -->
+            <div class="table-box" id="activity_logs" style="left: 1450px; top: 80px;">
+                <div class="table-header">📈 activity_logs</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">standard_routine_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">ai_routine_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">start_time</span><span class="field-type">TIMESTAMP</span></div>
+                    <div class="field"><span class="field-name">end_time</span><span class="field-type">TIMESTAMP</span></div>
+                    <div class="field"><span class="field-name">total_time_min</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">total_calories</span><span class="field-type">NUMERIC</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="activity_detail_logs" style="left: 1450px; top: 400px;">
+                <div class="table-header">📊 activity_detail_logs</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">activity_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">exercise_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">set_number</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">reps_done</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">score</span><span class="field-type">NUMERIC</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="pose_analysis" style="left: 1450px; top: 640px;">
+                <div class="table-header">🎯 pose_analysis</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">exercise_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">frame_file_name</span><span class="field-type">TEXT</span></div>
+                    <div class="field"><span class="field-name">angles_json</span><span class="field-type">JSONB</span></div>
+                    <div class="field"><span class="field-name">issues_json</span><span class="field-type">JSONB</span></div>
+                    <div class="field"><span class="field-name">score</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">feedback_text</span><span class="field-type">TEXT</span></div>
+                    <div class="field"><span class="field-name">created_at</span><span class="field-type">TIMESTAMP</span></div>
+                </div>
+            </div>
+
+            <!-- AI 추천 영역 -->
+            <div class="table-box" id="ai_recommended_routines" style="left: 750px; top: 1260px;">
+                <div class="table-header">🤖 ai_recommended_routines</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">goal_type</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">target_value</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">ai_model_type</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">created_at</span><span class="field-type">TIMESTAMP</span></div>
+                    <div class="field"><span class="field-name">total_time_min</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">total_calories</span><span class="field-type">NUMERIC</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="ai_routine_items" style="left: 1100px; top: 1260px;">
+                <div class="table-header">🔢 ai_routine_items</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">ai_routine_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">exercise_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">step_number</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">set_count</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">reps</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">duration_sec</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">rest_sec</span><span class="field-type">INT</span></div>
+                </div>
+            </div>
+
+            <!-- 챌린지 및 랭킹 영역 -->
+            <div class="table-box" id="challenges" style="left: 1450px; top: 1260px;">
+                <div class="table-header">🏆 challenges</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">period_days</span><span class="field-type">INT</span></div>
+                    <div class="field"><span class="field-name">reward_type</span><span class="field-type">VARCHAR</span></div>
+                    <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="challenge_participation" style="left: 1800px; top: 1260px;">
+                <div class="table-header">🎯 challenge_participation</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">challenge_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">progress_percent</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">score</span><span class="field-type">NUMERIC</span></div>
+                </div>
+            </div>
+
+            <div class="table-box" id="ranking" style="left: 1800px; top: 1500px;">
+                <div class="table-header">📊 ranking</div>
+                <div class="table-body">
+                    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">UUID</span></div>
+                    <div class="field"><span class="field-name">score</span><span class="field-type">NUMERIC</span></div>
+                    <div class="field"><span class="field-name">weekly_rank</span><span class="field-type">INT</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 관계선 그리기
+        function drawLine(from, to, color = '#555') {
+            const svg = document.getElementById('connections');
+            const fromEl = document.getElementById(from);
+            const toEl = document.getElementById(to);
+            
+            if (!fromEl || !toEl) return;
+            
+            const fromRect = fromEl.getBoundingClientRect();
+            const toRect = toEl.getBoundingClientRect();
+            const canvasRect = svg.parentElement.getBoundingClientRect();
+            
+            const x1 = fromRect.right - canvasRect.left;
+            const y1 = fromRect.top + fromRect.height / 2 - canvasRect.top;
+            const x2 = toRect.left - canvasRect.left;
+            const y2 = toRect.top + toRect.height / 2 - canvasRect.top;
+            
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', x1);
+            line.setAttribute('y1', y1);
+            line.setAttribute('x2', x2);
+            line.setAttribute('y2', y2);
+            line.setAttribute('stroke', color);
+            line.setAttribute('stroke-width', '2');
+            line.setAttribute('opacity', '0.6');
+            
+            svg.appendChild(line);
+        }
+
+        // 페이지 로드 후 관계선 그리기
+        window.addEventListener('load', () => {
+            // users 관계
+            drawLine('users', 'user_body_info', '#00d4ff');
+            drawLine('users', 'subscriptions', '#00d4ff');
+            drawLine('users', 'payment_history', '#00d4ff');
+            drawLine('users', 'wearable_data', '#00d4ff');
+            drawLine('users', 'ai_recommended_routines', '#00d4ff');
+            drawLine('users', 'activity_logs', '#00d4ff');
+            drawLine('users', 'pose_analysis', '#00d4ff');
+            drawLine('users', 'user_routine_progress', '#00d4ff');
+            drawLine('users', 'challenge_participation', '#00d4ff');
+            drawLine('users', 'ranking', '#00d4ff');
+            
+            // subscription_plans 관계
+            drawLine('subscription_plans', 'subscriptions', '#ff6b6b');
+            drawLine('subscription_plans', 'payment_history', '#ff6b6b');
+            
+            // routines 관계
+            drawLine('routines', 'routine_items', '#ffd700');
+            drawLine('routines', 'routine_flow', '#ffd700');
+            drawLine('routines', 'user_routine_progress', '#ffd700');
+            drawLine('routines', 'activity_logs', '#ffd700');
+            
+            // exercise 관계
+            drawLine('exercise', 'routine_items', '#7bed9f');
+            drawLine('exercise', 'routine_flow', '#7bed9f');
+            drawLine('exercise', 'ai_routine_items', '#7bed9f');
+            drawLine('exercise', 'activity_detail_logs', '#7bed9f');
+            drawLine('exercise', 'pose_analysis', '#7bed9f');
+            
+            // ai_recommended_routines 관계
+            drawLine('ai_recommended_routines', 'ai_routine_items', '#ff6348');
+            drawLine('ai_recommended_routines', 'activity_logs', '#ff6348');
+            
+            // activity_logs 관계
+            drawLine('activity_logs', 'activity_detail_logs', '#a29bfe');
+            
+            // challenges 관계
+            drawLine('challenges', 'challenge_participation', '#fd79a8');
+        });

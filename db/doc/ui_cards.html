@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Home Training Cards</title>
+<style>
+body { font-family: Arial, Helvetica, sans-serif; background:#f5f8fb; margin:0; padding:16px; }
+.container { max-width:420px; margin:0 auto; }
+.card { background: #fff; border-radius:12px; box-shadow:0 6px 18px rgba(11,99,184,0.12); padding:16px; margin-bottom:16px; }
+.header { display:flex; align-items:center; gap:12px; }
+.badge { background:#0b63b8; color:#fff; width:48px; height:48px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:bold; }
+.title { font-size:16px; font-weight:700; color:#0b63b8; }
+.subtitle { font-size:12px; color:#333; margin-top:4px; }
+.list { margin-top:8px; }
+.item { font-size:13px; padding:6px 0; border-bottom:1px dashed #eee; }
+.kcal { font-size:12px; color:#666; margin-top:8px; }
+.button { display:inline-block; margin-top:10px; padding:8px 12px; background:#0b63b8; color:#fff; border-radius:8px; text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Cards generated from JSON -->
+
+  <div class="card" id="optimal">
+    <div class="header"><div class="badge">Y.L.</div>
+      <div>
+        <div class="title">최적 추천 (근력 + 체형 균형)</div>
+        <div class="subtitle">60–70분 · 약 395 kcal (추가 조정으로 500 kcal 목표 달성 가능)</div>
+      </div>
+    </div>
+    <div class="list">
+    <div class="item">• 푸시업 (Push-up) — 4세트 × 12회 — 12min</div><div class="item">• 힙 쓰러스트 (Hip Thrust) — 4세트 × 15회 — 12min</div><div class="item">• 플랭크 (Plank) — 4세트 × 45초 — 10min</div><div class="item">• 바이시클 크런치 (Bicycle Crunch) — 4세트 × 20회 — 10min</div><div class="item">• 스텝 백워드 다이나믹 런지 (Step Backward Dynamic Lunge) — 4세트 × 12회(좌우) — 12min</div>
+    </div>
+    <div class="kcal">예상 소모: 약 395 kcal (추가 조정으로 500 kcal 목표 달성 가능)</div>
+    <a class="button" href="#optimal">루틴 시작</a>
+  </div>
+    
+  <div class="card" id="similar">
+    <div class="header"><div class="badge">Y.L.</div>
+      <div>
+        <div class="title">유사 사용자 추천 (꾸준함·유지)</div>
+        <div class="subtitle">55–65분 · 약 345 kcal</div>
+      </div>
+    </div>
+    <div class="list">
+    <div class="item">• 힙 쓰러스트 (Hip Thrust) — 4세트 × 15회 — 10min</div><div class="item">• 푸시업 (Push-up) — 4세트 × 10–12회 — 10min</div><div class="item">• 플랭크 (Plank) — 4세트 × 40초 — 10min</div><div class="item">• 굿모닝 (Good Morning) — 4세트 × 12회 — 10min</div><div class="item">• 크런치 (Crunch) — 4세트 × 15회 — 10min</div>
+    </div>
+    <div class="kcal">예상 소모: 약 345 kcal</div>
+    <a class="button" href="#similar">루틴 시작</a>
+  </div>
+    
+  <div class="card" id="goal_priority">
+    <div class="header"><div class="badge">Y.L.</div>
+      <div>
+        <div class="title">목표 우선 루틴 (500kcal 달성 우선)</div>
+        <div class="subtitle">65–75분 · 약 487 kcal (약간 조정 시 500 kcal 달성)</div>
+      </div>
+    </div>
+    <div class="list">
+    <div class="item">• 버피 (Burpee) — 6세트 × 2분 (인터벌) — 20min</div><div class="item">• 푸시업 (Push-up) — 5세트 × 12회 — 15min</div><div class="item">• 플랭크 (Plank) — 5세트 × 50초 — 12min</div><div class="item">• 힙 쓰러스트 (Hip Thrust) — 5세트 × 15회 — 13min</div>
+    </div>
+    <div class="kcal">예상 소모: 약 487 kcal (약간 조정 시 500 kcal 달성)</div>
+    <a class="button" href="#goal_priority">루틴 시작</a>
+  </div>
+    
+</div>
+</body>
+</html>
