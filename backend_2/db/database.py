@@ -1,22 +1,30 @@
-# SQLAlchemy의 create_engine 함수 import
-# DB 연결 엔진 생성에 사용
+# db/database.py
+
+from config.settings import settings
 from sqlalchemy import create_engine
 
-# 설정값 import
-# settings: config/settings.py에서 정의한 환경 변수 객체
-from config.settings import settings
+# ---------------------------------
+# PostgreSQL DB URL 확인용 (선택)
+# ---------------------------------
+print("🚀 DATABASE_URL =", settings.DATABASE_URL)
 
+# ---------------------------------
 # SQLAlchemy Engine 생성
-# settings.DATABASE_URL: PostgreSQL 연결 URL
-# future=True: SQLAlchemy 2.x 스타일 사용 (향후 버전 호환)
-engine = create_engine(settings.DATABASE_URL, future=True)
+# ---------------------------------
+# future=True → SQLAlchemy 2.x 스타일
+engine = create_engine(
+    settings.DATABASE_URL,
+    echo=True,        # SQL 출력 (디버깅 쉽게)
+    future=True
+)
 
-# DB 연결 세션/커넥션 제공용 함수
-# FastAPI에서 Dependency로 사용 가능
+# ---------------------------------
+# FastAPI 의존성 주입(DB 연결 제공)
+# ---------------------------------
 def get_db():
-    # engine.connect()를 context manager로 사용
-    # 연결이 끝나면 자동으로 close 처리
+    """
+    FastAPI 라우터에서 DB 연결을 주입할 때 사용.
+    RAW SQL 방식이므로 Connection 객체를 반환한다.
+    """
     with engine.connect() as conn:
-        # yield를 사용하여 generator 형태로 반환
-        # FastAPI에서 dependency injection 시 사용됨
         yield conn

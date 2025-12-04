@@ -1,26 +1,50 @@
 # 외부 모듈 import
-# verify_password: 입력한 평문 비밀번호와 DB에 저장된 해시값을 비교
 from services.hashing_service import verify_password
-
-# get_user_by_email: 이메일을 기반으로 DB에서 사용자 정보 조회
 from models.users_model import get_user_by_email
 
-# 로그인 처리 함수 정의
-# data: 프론트에서 전달된 로그인 정보 (dict, 예: {"email": ..., "password": ...})
-# db: SQLAlchemy DB 세션 또는 연결 객체
+# 로그인 처리 함수
 def login_user(data: dict, db):
-    # 1. 이메일을 기준으로 DB에서 사용자 정보 조회
+    """
+    로그인 로직:
+    1. 이메일로 사용자 조회
+    2. 비밀번호 검증
+    3. 최고 관리자(admin@test.com) 고정 role 적용
+    4. DB role 컬럼 기반 관리자 판별
+    """
+
+    print("\n🟦 [LOGIN_USER] 로그인 시도:", data)   # 디버깅 로그
+
+    # 1. 이메일 기준 유저 조회
     user = get_user_by_email(db, data["email"])
-    
-    # 2. 사용자가 존재하지 않으면 에러 반환
+    print("🟩 [LOGIN_USER] 조회된 유저:", user)  # 디버깅
+
     if not user:
-        return {"error": "등록되지 않은 이메일입니다."}  # 이메일 미등록 시 메시지
-    
-    # 3. 비밀번호 검증
-    # verify_password: 입력한 평문 비밀번호와 DB에 저장된 해시값 비교
+        print("❌ [LOGIN_USER] 존재하지 않는 이메일")
+        return {"error": "등록되지 않은 이메일입니다."}
+
+    # 2. 비밀번호 검증
     if not verify_password(data["password"], user["password_hash"]):
-        return {"error": "비밀번호가 올바르지 않습니다."}  # 비밀번호 불일치 시 메시지
-    
-    # 4. 모든 검증 통과 시 사용자 정보 반환
-    # 반환값 예: {"id": UUID로 암호화된 문자열, "email": "test@test.com", "name": "홍길동", ...}
-    return user
+        print("❌ [LOGIN_USER] 비밀번호 불일치")
+        return {"error": "비밀번호가 올바르지 않습니다."}
+
+    # ---------------------------------------------
+    # ⭐ 3. 최고 관리자(SUPER ADMIN) 강제 설정
+    # ---------------------------------------------
+    if user["email"] == "admin@test.com":
+        role_value = True
+        print("🟨 [LOGIN_USER] SUPER ADMIN 로그인 (admin@test.com이므로 role=True)")  
+    else:
+        # DB role 값(True/False)을 그대로 사용
+        role_value = bool(user["role"])
+        print("🟦 [LOGIN_USER] 일반 사용자 role 값:", role_value)
+    # ---------------------------------------------
+
+    # 4. 로그인 성공
+    print("🟩 [LOGIN_USER] 로그인 성공, 최종 role:", role_value)
+
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "role": role_value
+    }

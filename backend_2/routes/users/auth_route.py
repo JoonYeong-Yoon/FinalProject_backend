@@ -1,52 +1,169 @@
-# FastAPI 관련 import
-from fastapi import APIRouter, Depends, HTTPException, Body
+# ============================================
+# 🔥 AUTH ROUTE (회원가입 / 로그인 / 내정보 / 수정)
+# ============================================
 
-# DB 연결 및 컨트롤러 import
+from fastapi import APIRouter, Depends, HTTPException, Body
+from sqlalchemy.orm import Session
+from sqlalchemy import text   # SQL 실행용
+
+# DB
 from db.database import get_db
+
+# 컨트롤러
 from controllers.user.register_controller import register_user
 from controllers.user.login_controller import login_user
-from services.oauth2_service import create_access_token  # JWT 토큰 생성
 
-# -----------------------------
-# 인증 관련 라우터 생성
-# -----------------------------
-router = APIRouter(tags=["auth"])  # Swagger UI에서 그룹화
+# JWT
+from services.oauth2_service import create_access_token, get_current_user
 
-# -----------------------------
-# 회원가입 엔드포인트
-# -----------------------------
+# 모델
+from models.users_model import UserCreate
+
+# user_info / user_body_info 수정용 함수들
+from models.user_info_model import update_user_info
+from models.user_body_model import update_body_info
+
+
+# ============================================
+# 라우터 생성
+# ============================================
+router = APIRouter(tags=["auth"])
+
+
+
+# ============================================
+# 1) 회원가입
+# ============================================
 @router.post("/register")
-async def register(user: dict = Body(...), db=Depends(get_db)):
-    """
-    회원가입 처리
-    - user: 요청 바디로 전달된 사용자 정보(dict)
-    - db: DB 연결 (Depends 사용)
-    반환: 성공 시 사용자 이메일/이름 dict, 실패 시 HTTPException 400
-    """
-    res = register_user(user, db)  # 컨트롤러 호출
-    if "error" in res:             # 에러 처리
-        raise HTTPException(status_code=400, detail=res["error"])
-    return res                     # 성공 시 사용자 정보 반환
+async def register(user: UserCreate = Body(...), db: Session = Depends(get_db)):
+    print("\n🟦 [AUTH] 회원가입 요청:", user.dict())
 
-# -----------------------------
-# 로그인 엔드포인트
-# -----------------------------
+    res = register_user(user.dict(), db)
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
+
+    return res
+
+
+
+# ============================================
+# 2) 로그인
+# ============================================
 @router.post("/login")
-async def login(user: dict = Body(...), db=Depends(get_db)):
-    """
-    로그인 처리
-    - user: 요청 바디로 전달된 이메일/비밀번호 dict
-    - db: DB 연결 (Depends 사용)
-    반환: JWT access_token, token_type, 사용자 이름
-    """
-    res = login_user(user, db)     # 컨트롤러 호출
-    if "error" in res:             # 인증 실패 시
+async def login(user: dict = Body(...), db: Session = Depends(get_db)):
+    print("\n🟦 [AUTH] 로그인 요청:", user)
+
+    res = login_user(user, db)
+    if "error" in res:
         raise HTTPException(status_code=400, detail=res["error"])
 
-    # JWT 토큰 생성
-    token = create_access_token({"email": res["email"]})
+    token = create_access_token({
+        "sub": str(res["id"]),
+        "role": res["role"]
+    })
+
     return {
         "access_token": token,
         "token_type": "bearer",
-        "name": res["name"]
+        "name": res["name"],
+        "role": res["role"]
     }
+
+
+
+# ============================================
+# 3) 내 정보 조회
+# ============================================
+@router.get("/me")
+def get_me(current_user=Depends(get_current_user)):
+    print("🟦 [AUTH] /me 요청 →", current_user)
+    return current_user
+
+
+
+# ============================================
+# 4) 🔥 프로필 전체 업데이트
+# ============================================
+@router.put("/update")
+def update_profile(
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    print("\n🟦 [AUTH] 프로필 업데이트 요청:", data)
+
+    uid = current_user["id"]
+
+
+    # ----------------------------------------
+    # 1) users 테이블 업데이트  (name, email만 존재!)
+    # ----------------------------------------
+    user_fields = {}
+
+    if "name" in data:
+        user_fields["name"] = data["name"]
+
+    if "email" in data:
+        user_fields["email"] = data["email"]
+
+    # ❌ avatar 컬럼 없음! → 절대 넣으면 안 됨
+
+
+    if user_fields:
+        print("🟩 users 업데이트:", user_fields)
+
+        db.execute(
+            text("""
+                UPDATE public.users
+                SET name = COALESCE(:name, name),
+                    email = COALESCE(:email, email)
+                WHERE id = :id
+            """),
+            {**user_fields, "id": uid}
+        )
+        db.commit()
+
+
+
+    # ----------------------------------------
+    # 2) user_info 업데이트 (pain 포함)
+    # ----------------------------------------
+    info_fields = {}
+    for key in [
+        "phone", "intro", "gender", "goal",
+        "dailyTime", "weekly", "prefer", "pain",
+        "activity", "targetPeriod"
+    ]:
+        if key in data:
+            info_fields[key] = data[key]
+
+    if info_fields:
+        print("🟩 user_info 업데이트:", info_fields)
+        update_user_info(db, uid, info_fields, insert_if_missing=True)
+
+
+
+    # ----------------------------------------
+    # 3) user_body_info 업데이트 (height/weight/BMI)
+    # ----------------------------------------
+    body_fields = {}
+
+    if "height" in data:
+        body_fields["height_cm"] = data["height"]
+
+    if "weight" in data:
+        body_fields["weight_kg"] = data["weight"]
+
+    # BMI 자동 계산
+    if "height" in data and "weight" in data:
+        h = data["height"] / 100
+        w = data["weight"]
+        body_fields["bmi"] = round(w / (h * h), 1)
+
+    if body_fields:
+        print("🟩 user_body_info 업데이트:", body_fields)
+        update_body_info(db, uid, body_fields, insert_if_missing=True)
+
+
+
+    return {"message": "프로필 업데이트 완료", "success": True}

@@ -1,72 +1,68 @@
-# JSON 처리 및 SQLAlchemy import
+# ============================================
+# 🚀 user_body_model.py — pain 제거 완료 버전
+# ============================================
+
 import json
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
-# 공통 update_record 함수 import
+# 공통 update_record 함수
 from .helpers import update_record
 
-# tables에 정의된 db의 테이블 불러오기
+# 테이블 이름 불러오기
 from .tables import USER_BODY_TABLE
 
-# -----------------------------
-# user_body_info 조회 함수
-# -----------------------------
-def get_body_info(db: Connection, user_id: int):
+
+# --------------------------------------------
+# 🟦 1) user_body_info 조회
+# --------------------------------------------
+def get_body_info(db: Connection, user_id: str):
     """
-    특정 사용자의 신체 정보(user_body_info) 조회
-    - db: SQLAlchemy DB 연결 객체
-    - user_id: 조회할 사용자 ID
-    반환: dict 형태의 사용자 신체 정보 또는 None
+    특정 사용자의 신체 정보 조회
     """
     return db.execute(
-        text(f"SELECT * FROM {USER_BODY_TABLE} WHERE user_id = :uid"),  # SQL 문자열
-        {"uid": user_id}  # 바인딩 파라미터
-    ).mappings().first()  # dict 형태로 반환
+        text(f"SELECT * FROM {USER_BODY_TABLE} WHERE user_id = :uid"),
+        {"uid": user_id}
+    ).mappings().first()
 
-# -----------------------------
-# user_body_info 삽입 함수
-# -----------------------------
-def insert_body_info(db: Connection, user_id: int, height_cm: float, weight_kg: float, bmi: float, pain=None):
+
+# --------------------------------------------
+# 🟩 2) user_body_info 신규 생성
+# --------------------------------------------
+def insert_body_info(db: Connection, user_id: str, height_cm=None, weight_kg=None, bmi=None):
     """
-    새로운 사용자 신체 정보 삽입
-    - db: SQLAlchemy DB 연결 객체
-    - user_id: 사용자 ID
-    - height_cm: 키(cm)
-    - weight_kg: 몸무게(kg)
-    - bmi: BMI 값
-    - pain: 통증 정보 리스트 (JSON으로 저장)
+    body_info 신규 삽입
     """
     db.execute(
-        text("""
-        INSERT INTO {USER_BODY_TABLE} 
-        (user_id, height_cm, weight_kg, bmi, pain)
-        VALUES (:user_id, :height_cm, :weight_kg, :bmi, :pain)
+        text(f"""
+        INSERT INTO {USER_BODY_TABLE}
+        (user_id, height_cm, weight_kg, bmi)
+        VALUES (:user_id, :height_cm, :weight_kg, :bmi)
         """),
         {
             "user_id": user_id,
             "height_cm": height_cm,
             "weight_kg": weight_kg,
             "bmi": bmi,
-            "pain": json.dumps(pain or []),  # 리스트를 JSON 문자열로 변환
         }
     )
-    db.commit()  # DB 반영
+    db.commit()
 
-# -----------------------------
-# user_body_info 업데이트 함수
-# -----------------------------
-def update_body_info(db: Connection, user_id: int, fields: dict, insert_if_missing=False):
+
+# --------------------------------------------
+# 🟧 3) user_body_info 업데이트
+# --------------------------------------------
+def update_body_info(db: Connection, user_id: str, fields: dict, insert_if_missing=False):
     """
-    사용자 신체 정보 업데이트
-    - fields: 업데이트할 필드 dict (예: {"height_cm": 180, "weight_kg": 70})
-    - insert_if_missing: True면 레코드 없을 경우 insert 수행
+    height_cm, weight_kg, bmi 같은 신체 정보만 업데이트
     """
+
+    # JSON 컬럼 없으므로 json_keys=[] 로 둔다
     update_record(
         db,
-        table=USER_BODY_TABLE,           # 테이블 이름
-        user_id=user_id,                 # 대상 사용자 ID
-        fields=fields,                   # 업데이트할 필드
-        json_keys=["pain"],              # JSON 변환할 필드
-        insert_func=insert_body_info if insert_if_missing else None  # insert 처리 함수
+        table=USER_BODY_TABLE,
+        user_id=user_id,
+        fields=fields,
+        json_keys=[],                     # ← pain 제거!
+        insert_func=insert_body_info if insert_if_missing else None
     )

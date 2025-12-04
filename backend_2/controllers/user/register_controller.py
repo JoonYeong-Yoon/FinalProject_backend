@@ -6,6 +6,7 @@ from services.hashing_service import password_hash
 from models.users_model import get_user_by_email, insert_user
 from models.user_info_model import insert_user_info
 
+
 # 회원가입 처리 함수 정의
 # user_data: 프론트에서 전달된 사용자 정보 (예: {"email": ..., "username": ..., "password": ...})
 # db: SQLAlchemy DB 세션 또는 연결 객체
@@ -26,7 +27,7 @@ def register_user(user_data: dict, db):
 
     # 4. 회원가입 시 user_info 초기 레코드 생성
     # insert_user_info: user_info 테이블에 기본 레코드 추가
-    insert_user_info(db, user_id=new_user_id)
+    ##insert_user_info(db, user_id=new_user_id)
 
     # 5. 회원가입 성공 시 사용자 이메일과 이름 반환
     return {"email": user_data["email"], "username": user_data["username"]}

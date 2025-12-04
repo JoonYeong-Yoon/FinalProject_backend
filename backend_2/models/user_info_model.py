@@ -37,7 +37,7 @@ def insert_user_info(db: Connection, user_id: int, dailytime=None, weekly=None,
     - prefer: 선호 항목 리스트, JSON 문자열로 저장
     """
     db.execute(
-        text("""
+        text(f"""
             INSERT INTO {USER_INFO_TABLE}
             (user_id, dailytime, weekly, activity, targetperiod, intro, prefer)
             VALUES (:user_id, :dailytime, :weekly, :activity, :targetperiod, :intro, :prefer)

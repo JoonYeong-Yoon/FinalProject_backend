@@ -208,3 +208,11 @@ AI-Trainer-Backend/
 > * 각 폴더, 파일의 역할 명확화
 > * 패키지 사용 방법과 import 관례 이해 도움
 > * `tables.py`를 활용하면 테이블 변경 시 중앙에서 관리 가능
+
+
+> 🔹 백엔드 실행
+> 
+> * conda activate ai_trainer
+> * python main.py
+uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --reload

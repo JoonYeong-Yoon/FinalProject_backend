@@ -97,7 +97,16 @@ def update_user_info(db, user_id: int, data: dict):
             update_user_info_model(db, user_id, info_fields)
         else:
             # user_info가 없으면 새로 insert
-            insert_user_info(db, user_id, info_fields)
+            insert_user_info(
+                db, 
+                user_id,
+                dailytime=info_fields.get("dailytime"),
+                weekly=info_fields.get("weekly"),
+                activity=info_fields.get("activity"),
+                targetperiod=info_fields.get("targetperiod"),
+                intro=info_fields.get("intro"),
+                prefer=info_fields.get("prefer")                
+            )
 
         # 최종 성공 메시지 반환
         return {"message": "회원정보가 수정되었습니다."}

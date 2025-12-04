@@ -7,6 +7,7 @@ from passlib.context import CryptContext
 pwd_cxt = CryptContext(schemes=["bcrypt"], deprecated="auto")  # bcrypt 사용, 구식 옵션 자동 처리
 MAX_BCRYPT_LEN = 72  # bcrypt는 최대 72바이트까지만 처리 가능
 
+
 # -----------------------------
 # 비밀번호 해싱 함수
 # -----------------------------
@@ -17,13 +18,15 @@ def password_hash(password: str):
     반환: 해시 문자열
     """
     password = password.strip()  # 공백 제거
-    pw_bytes = password.encode("utf-8")  # 문자열 → 바이트
 
     # bcrypt 최대 길이 제한 적용
+    pw_bytes = password.encode("utf-8")
     if len(pw_bytes) > MAX_BCRYPT_LEN:
-        pw_bytes = pw_bytes[:MAX_BCRYPT_LEN]
+        # 길이가 넘으면 자른 다음 문자열로 다시 복원
+        password = pw_bytes[:MAX_BCRYPT_LEN].decode("utf-8", errors="ignore")
 
-    return pwd_cxt.hash(pw_bytes)  # 해시값 반환
+    return pwd_cxt.hash(password)  # bcrypt는 문자열(str) 넣어야 함
+
 
 # -----------------------------
 # 비밀번호 검증 함수
@@ -35,8 +38,11 @@ def verify_password(plain_pw: str, hashed_pw: str):
     - hashed_pw: DB에 저장된 bcrypt 해시
     반환: True / False
     """
+
+    # 길이 초과 시 잘라냄
     pw_bytes = plain_pw.encode("utf-8")
     if len(pw_bytes) > MAX_BCRYPT_LEN:
-        pw_bytes = pw_bytes[:MAX_BCRYPT_LEN]  # 최대 길이 제한
+        plain_pw = pw_bytes[:MAX_BCRYPT_LEN].decode("utf-8", errors="ignore")
 
-    return pwd_cxt.verify(pw_bytes, hashed_pw)  # 검증 결과 반환
+    # bcrypt 검증
+    return pwd_cxt.verify(plain_pw, hashed_pw)
