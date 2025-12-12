@@ -1,41 +1,28 @@
-# JSON 처리 및 SQLAlchemy import
 import json
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
-# 공통 update_record 함수 import
+from .tables import USER_INFO_TABLE
 from .helpers import update_record
 
-# tables에 정의된 db의 테이블 불러오기
-from .tables import USER_INFO_TABLE
 
 # -----------------------------
-# user_info 조회 함수
+# user_info 조회
 # -----------------------------
 def get_user_info(db: Connection, user_id: int):
-    """
-    특정 사용자의 user_info 조회
-    - db: SQLAlchemy DB 연결 객체
-    - user_id: 조회할 사용자 ID
-    반환: dict 형태의 사용자 정보 또는 None
-    """
     return db.execute(
-        text(f"SELECT * FROM {USER_INFO_TABLE} WHERE user_id = :uid"),  # SQL문
-        {"uid": user_id}  # 바인딩 파라미터
-    ).mappings().first()  # dict 형태로 반환
+        text(f"SELECT * FROM {USER_INFO_TABLE} WHERE user_id = :uid"),
+        {"uid": user_id}
+    ).mappings().first()
+
 
 # -----------------------------
-# user_info 삽입 함수
+# ⚠️ user_info 삽입 (회원가입에서는 절대 호출 안 됨)
 # -----------------------------
-def insert_user_info(db: Connection, user_id: int, dailytime=None, weekly=None,
-                     activity=None, targetperiod=None, intro=None, prefer=None):
-    """
-    새로운 user_info 레코드 삽입
-    - db: SQLAlchemy DB 연결 객체
-    - user_id: 사용자 ID
-    - dailytime, weekly, activity, targetperiod, intro: 사용자 정보 필드
-    - prefer: 선호 항목 리스트, JSON 문자열로 저장
-    """
+def insert_user_info(db: Connection, user_id: int,
+                     dailytime=None, weekly=None, activity=None,
+                     targetperiod=None, intro=None, prefer=None):
+
     db.execute(
         text(f"""
             INSERT INTO {USER_INFO_TABLE}
@@ -49,32 +36,29 @@ def insert_user_info(db: Connection, user_id: int, dailytime=None, weekly=None,
             "activity": activity,
             "targetperiod": targetperiod,
             "intro": intro,
-            "prefer": json.dumps(prefer or []),  # 리스트 → JSON 문자열
+            "prefer": json.dumps(prefer or []),
         }
     )
-    db.commit()  # DB 반영
+
+    db.commit()
+
 
 # -----------------------------
-# user_info 업데이트 함수
+# user_info 업데이트
 # -----------------------------
 def update_user_info(db: Connection, user_id: int, fields: dict, insert_if_missing=False):
-    """
-    사용자 user_info 업데이트
-    - fields: 업데이트할 필드 dict
-    - insert_if_missing: True면 레코드가 없을 경우 insert 수행
-    """
-    # 프론트에서 전달된 camelCase 키를 DB 컬럼명 snake_case로 매핑
+
+    # camelCase → snake_case 변환
     if "dailyTime" in fields:
         fields["dailytime"] = fields.pop("dailyTime")
     if "targetPeriod" in fields:
         fields["targetperiod"] = fields.pop("targetPeriod")
 
-    # 공통 update_record 사용
     update_record(
         db,
-        table=USER_INFO_TABLE,             # 테이블 이름
-        user_id=user_id,                        # 대상 사용자 ID
-        fields=fields,                          # 업데이트할 필드
-        json_keys=["prefer"],                   # JSON 변환할 필드
-        insert_func=insert_user_info if insert_if_missing else None  # insert 처리 함수
+        table=USER_INFO_TABLE,
+        user_id=user_id,
+        fields=fields,
+        json_keys=["prefer"],
+        insert_func=insert_user_info if insert_if_missing else None
     )

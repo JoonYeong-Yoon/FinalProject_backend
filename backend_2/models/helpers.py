@@ -45,8 +45,12 @@ def update_record(db: Connection, table: str, user_id: int, fields: dict, json_k
 
     # 1. 기존 레코드 존재 여부 확인
     stmt = text(f"SELECT * FROM {table} WHERE user_id = :uid")  # text()로 감싸야 SQLAlchemy 2.x 호환
-    existing = db.execute(stmt, {"uid": user_id}).mappings().first()
-
+    print("stmt",stmt)
+    try:
+        existing = db.execute(stmt, {"uid": user_id}).mappings().first()
+    except Exception as e:
+        print("오류", e)
+    print("existing",existing)
     # 2. 레코드가 없으면 insert_func 호출
     if not existing:
         if insert_func:

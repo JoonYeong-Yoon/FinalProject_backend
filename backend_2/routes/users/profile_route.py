@@ -1,58 +1,50 @@
 # FastAPI 관련 import
 from fastapi import APIRouter, Depends, HTTPException, Body
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 
-# DB 연결 및 모델/컨트롤러 import
+# DB 연결
 from db.database import get_db
+
+# 인증
 from services.oauth2_service import get_current_user
 
-from models.users_model import (
-    get_user_by_email,
-    update_basic_user,
-    delete_user
-)
-
-from models.user_body_model import (
-    get_body_info,
-    update_body_info
-)
-
-from models.user_info_model import (
-    get_user_info,
-    update_user_info as update_info
-)
+# 모델 함수 import
+from models.users_model import get_user_by_email
+from models.user_body_model import get_body_info, update_body_info
+from models.user_info_model import get_user_info, update_user_info as update_info
 
 
 # -----------------------------
 # 사용자 프로필 라우터 생성
 # -----------------------------
 router = APIRouter(
-    prefix="/web/users",     # 프론트와 매칭되는 prefix
+    prefix="/web/users",
     tags=["users"]
 )
 
 
 # =============================
-# 🔵 내 정보 조회
+# 🔵 1) 내 정보 조회
 # =============================
 @router.get("/me")
 async def get_my_info(
     current_user=Depends(get_current_user),
     db=Depends(get_db)
 ):
-    # 1) 기본 user 정보
     user = get_user_by_email(db, current_user["email"])
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
     user_id = user["id"]
 
-    # 2) body_info
+    # body_info 조회
     body = get_body_info(db, user_id) or {}
 
-    # 3) user_info
+    # user_info 조회
     info = get_user_info(db, user_id) or {}
 
-    # 4) 날짜 처리
+    # 날짜 변환
     created_at = user.get("created_at")
     if created_at:
         try:
@@ -60,9 +52,8 @@ async def get_my_info(
         except:
             created_at = str(created_at)[:10]
 
-    # 5) 프론트로 반환
+    # 반환
     return {
-        # 기본 user 정보
         "name": user.get("name"),
         "email": user.get("email"),
         "phone": user.get("phone"),
@@ -71,12 +62,10 @@ async def get_my_info(
         "goal": user.get("goal"),
         "avatar": user.get("avatar"),
 
-        # body_info
         "height": body.get("height_cm"),
         "weight": body.get("weight_kg"),
         "bmi": body.get("bmi"),
 
-        # user_info
         "dailyTime": info.get("dailytime"),
         "weekly": info.get("weekly"),
         "activity": info.get("activity"),
@@ -89,7 +78,7 @@ async def get_my_info(
 
 
 # =============================
-# 🔵 내 정보 수정 (update)
+# 🔵 2) 내 정보 수정 (전체 update)
 # =============================
 @router.put("/update")
 async def update_user_all(
@@ -104,15 +93,23 @@ async def update_user_all(
     user_id = user["id"]
 
     # ----------------------------------------
-    # 1) 기본 user 테이블 업데이트
+    # 1) 기본 users 테이블 업데이트 (raw SQL)
     # ----------------------------------------
-    basic_fields = {}
+    user_fields = {}
     for key in ["name", "email", "phone", "age", "gender", "goal", "avatar"]:
         if key in body:
-            basic_fields[key] = body[key]
+            user_fields[key] = body[key]
 
-    if basic_fields:
-        update_basic_user(db, user_id, basic_fields)
+    if user_fields:
+        set_clause = ", ".join([f"{k} = :{k}" for k in user_fields.keys()])
+
+        query = text(f"""
+            UPDATE public.users
+            SET {set_clause}
+            WHERE id = :id
+        """)
+        db.execute(query, {**user_fields, "id": user_id})
+        db.commit()
 
     # ----------------------------------------
     # 2) user_info 테이블 업데이트
@@ -126,16 +123,14 @@ async def update_user_all(
         update_info(db, user_id, info_fields, insert_if_missing=True)
 
     # ----------------------------------------
-    # 3) body_info 테이블 업데이트
+    # 3) user_body_info 업데이트
     # ----------------------------------------
     body_fields = {}
     if "height" in body:
         body_fields["height_cm"] = body["height"]
-
     if "weight" in body:
         body_fields["weight_kg"] = body["weight"]
 
-    # BMI 자동 계산
     if "height" in body and "weight" in body:
         h = body["height"]
         w = body["weight"]
@@ -149,7 +144,7 @@ async def update_user_all(
 
 
 # =============================
-# 🔵 계정 삭제
+# 🔵 3) 계정 삭제 (본인만 가능)
 # =============================
 @router.delete("/delete")
 async def delete_my_account(
@@ -160,5 +155,10 @@ async def delete_my_account(
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
-    delete_user(db, user["id"])
+    db.execute(
+        text("DELETE FROM public.users WHERE id = :id"),
+        {"id": user["id"]}
+    )
+    db.commit()
+
     return {"message": "계정 삭제 완료"}

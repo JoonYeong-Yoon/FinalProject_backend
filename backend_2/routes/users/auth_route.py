@@ -17,7 +17,8 @@ from controllers.user.login_controller import login_user
 from services.oauth2_service import create_access_token, get_current_user
 
 # 모델
-from models.users_model import UserCreate
+from models.schemas import UserCreate
+
 
 # user_info / user_body_info 수정용 함수들
 from models.user_info_model import update_user_info

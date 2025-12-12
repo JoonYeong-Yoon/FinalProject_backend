@@ -8,8 +8,8 @@ from .users_model import (
     get_user_by_email,  # 이메일로 사용자 조회
     get_user_by_id,     # ID로 사용자 조회
     insert_user,        # 사용자 삽입
-    update_user,        # 사용자 정보 업데이트
-    delete_user,        # 사용자 삭제
+    # update_user,       # ❌ users_model.py에 없음 → 삭제
+    # delete_user,       # ❌ users_model.py에 없음 → 삭제
 )
 
 # user_info_model.py에서 필요한 함수 import
