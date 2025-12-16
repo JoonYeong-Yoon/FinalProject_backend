@@ -30,7 +30,7 @@ router = APIRouter(
 @router.get("/me")
 async def get_my_info(
     current_user=Depends(get_current_user),
-    db=Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     user = get_user_by_email(db, current_user["email"])
     if not user:
@@ -47,12 +47,9 @@ async def get_my_info(
     # 날짜 변환
     created_at = user.get("created_at")
     if created_at:
-        try:
-            created_at = created_at.strftime("%Y-%m-%d")
-        except:
-            created_at = str(created_at)[:10]
+        created_at = str(created_at)[:10]
 
-    # 반환
+    # ✅ 프론트에서 바로 쓰는 구조로 반환
     return {
         "name": user.get("name"),
         "email": user.get("email"),
@@ -62,8 +59,9 @@ async def get_my_info(
         "goal": user.get("goal"),
         "avatar": user.get("avatar"),
 
-        "height": body.get("height_cm"),
-        "weight": body.get("weight_kg"),
+        # 🔥 핵심 (프론트 state와 동일)
+        "height_cm": body.get("height_cm"),
+        "weight_kg": body.get("weight_kg"),
         "bmi": body.get("bmi"),
 
         "dailyTime": info.get("dailytime"),
@@ -71,19 +69,19 @@ async def get_my_info(
         "activity": info.get("activity"),
         "targetPeriod": info.get("targetperiod"),
         "intro": info.get("intro"),
-        "prefer": info.get("prefer") if info.get("prefer") else [],
+        "prefer": info.get("prefer") or [],
 
         "created_at": created_at
     }
 
 
 # =============================
-# 🔵 2) 내 정보 수정 (전체 update)
+# 🔵 2) 내 정보 수정
 # =============================
 @router.put("/update")
 async def update_user_all(
     current_user=Depends(get_current_user),
-    db=Depends(get_db),
+    db: Session = Depends(get_db),
     body: dict = Body(...)
 ):
     user = get_user_by_email(db, current_user["email"])
@@ -93,7 +91,7 @@ async def update_user_all(
     user_id = user["id"]
 
     # ----------------------------------------
-    # 1) 기본 users 테이블 업데이트 (raw SQL)
+    # 1️⃣ users 테이블 업데이트
     # ----------------------------------------
     user_fields = {}
     for key in ["name", "email", "phone", "age", "gender", "goal", "avatar"]:
@@ -101,8 +99,7 @@ async def update_user_all(
             user_fields[key] = body[key]
 
     if user_fields:
-        set_clause = ", ".join([f"{k} = :{k}" for k in user_fields.keys()])
-
+        set_clause = ", ".join(f"{k} = :{k}" for k in user_fields)
         query = text(f"""
             UPDATE public.users
             SET {set_clause}
@@ -112,7 +109,7 @@ async def update_user_all(
         db.commit()
 
     # ----------------------------------------
-    # 2) user_info 테이블 업데이트
+    # 2️⃣ user_info 테이블 업데이트
     # ----------------------------------------
     info_fields = {}
     for key in ["dailyTime", "weekly", "activity", "targetPeriod", "intro", "prefer"]:
@@ -123,19 +120,24 @@ async def update_user_all(
         update_info(db, user_id, info_fields, insert_if_missing=True)
 
     # ----------------------------------------
-    # 3) user_body_info 업데이트
+    # 3️⃣ user_body_info 업데이트 (🔥 핵심)
     # ----------------------------------------
     body_fields = {}
-    if "height" in body:
-        body_fields["height_cm"] = body["height"]
-    if "weight" in body:
-        body_fields["weight_kg"] = body["weight"]
 
-    if "height" in body and "weight" in body:
-        h = body["height"]
-        w = body["weight"]
-        if h and w:
-            body_fields["bmi"] = round(w / ((h / 100) ** 2), 1)
+    height = body.get("height")
+    weight = body.get("weight")
+
+    if height is not None:
+        body_fields["height_cm"] = float(height)
+
+    if weight is not None:
+        body_fields["weight_kg"] = float(weight)
+
+    # BMI 계산
+    if height and weight:
+        body_fields["bmi"] = round(
+            float(weight) / ((float(height) / 100) ** 2), 1
+        )
 
     if body_fields:
         update_body_info(db, user_id, body_fields, insert_if_missing=True)
@@ -144,12 +146,12 @@ async def update_user_all(
 
 
 # =============================
-# 🔵 3) 계정 삭제 (본인만 가능)
+# 🔵 3) 계정 삭제
 # =============================
 @router.delete("/delete")
 async def delete_my_account(
     current_user=Depends(get_current_user),
-    db=Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     user = get_user_by_email(db, current_user["email"])
     if not user:

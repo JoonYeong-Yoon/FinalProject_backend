@@ -95,9 +95,8 @@ def update_profile(
 
     uid = current_user["id"]
 
-
     # ----------------------------------------
-    # 1) users 테이블 업데이트  (name, email만 존재!)
+    # 1) users 테이블 업데이트
     # ----------------------------------------
     user_fields = {}
 
@@ -107,12 +106,8 @@ def update_profile(
     if "email" in data:
         user_fields["email"] = data["email"]
 
-    # ❌ avatar 컬럼 없음! → 절대 넣으면 안 됨
-
-
     if user_fields:
         print("🟩 users 업데이트:", user_fields)
-
         db.execute(
             text("""
                 UPDATE public.users
@@ -124,10 +119,8 @@ def update_profile(
         )
         db.commit()
 
-
-
     # ----------------------------------------
-    # 2) user_info 업데이트 (pain 포함)
+    # 2) user_info 업데이트
     # ----------------------------------------
     info_fields = {}
     for key in [
@@ -142,29 +135,29 @@ def update_profile(
         print("🟩 user_info 업데이트:", info_fields)
         update_user_info(db, uid, info_fields, insert_if_missing=True)
 
-
-
     # ----------------------------------------
-    # 3) user_body_info 업데이트 (height/weight/BMI)
+    # 3) 🔥 user_body_info 업데이트 (프론트 기준!)
     # ----------------------------------------
     body_fields = {}
 
-    if "height" in data:
-        body_fields["height_cm"] = data["height"]
+    if "height_cm" in data:
+        body_fields["height_cm"] = data["height_cm"]
 
-    if "weight" in data:
-        body_fields["weight_kg"] = data["weight"]
+    if "weight_kg" in data:
+        body_fields["weight_kg"] = data["weight_kg"]
 
     # BMI 자동 계산
-    if "height" in data and "weight" in data:
-        h = data["height"] / 100
-        w = data["weight"]
+    if "height_cm" in data and "weight_kg" in data:
+        h = data["height_cm"] / 100
+        w = data["weight_kg"]
         body_fields["bmi"] = round(w / (h * h), 1)
 
     if body_fields:
         print("🟩 user_body_info 업데이트:", body_fields)
         update_body_info(db, uid, body_fields, insert_if_missing=True)
 
+    return {
+        "message": "프로필 업데이트 완료",
+        "success": True
+    }
 
-
-    return {"message": "프로필 업데이트 완료", "success": True}
