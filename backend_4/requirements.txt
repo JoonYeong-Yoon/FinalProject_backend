@@ -7,3 +7,15 @@ python-jose
 pydantic<2
 psycopg2
 python-multipart
+
+torch==2.9.1
+torchaudio==2.9.1
+torchvision==0.24.1
+ultralytics==8.3.239
+timm==1.0.22
+pillow
+
+# checklist
+python-dotenv
+openai
+chromadb
