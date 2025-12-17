@@ -2,13 +2,14 @@
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
-from .tables import USERS_TABLE
+from .tables import USERS_TABLE, USER_BODY_TABLE
 
 
 # ===========================
 # 1) 이메일로 사용자 조회
 # ===========================
 def get_user_by_email(db: Connection, email: str):
+
     row = db.execute(
         text(f"SELECT * FROM {USERS_TABLE} WHERE email = :email"),
         {"email": email}
@@ -20,9 +21,19 @@ def get_user_by_email(db: Connection, email: str):
 # 2) ID로 사용자 조회
 # ===========================
 def get_user_by_id(db: Connection, user_id: str):
+    query = f"""
+    SELECT
+        u.*,
+        ub.*
+    FROM {USERS_TABLE} u
+    LEFT JOIN {USER_BODY_TABLE} ub
+        ON u.id = ub.user_id
+    WHERE u.id = :user_id;
+    """
     row = db.execute(
-        text(f"SELECT * FROM {USERS_TABLE} WHERE id = :id"),
-        {"id": user_id}
+        text(query),
+        # text(f"SELECT * FROM {USERS_TABLE} WHERE id = :id"),
+        {"user_id": user_id}
     ).mappings().first()
     return dict(row) if row else None
 
@@ -48,12 +59,12 @@ def insert_user(db: Connection, email: str, name: str, password_hash: str, goal=
     return result.scalar()
 
 
+
 # ===========================
 # ⭐ 4) 기본정보 업데이트 (선택)
 # profile_route에서는 raw SQL 사용하므로 필수 아님
 # ===========================
 def update_basic_user(db: Connection, user_id: str, fields: dict):
-    print("fields",fields)
     """
     users 테이블 기본 필드 업데이트 (name, email, phone, age 등)
     """
@@ -76,7 +87,6 @@ def update_basic_user(db: Connection, user_id: str, fields: dict):
 # ⭐ 5) 사용자 삭제 (관리자/본인탈퇴용)
 # ===========================
 def delete_user(db: Connection, user_id: str):
-    print(1111)
     db.execute(
         text(f"DELETE FROM {USERS_TABLE} WHERE id = :id"),
         {"id": user_id}

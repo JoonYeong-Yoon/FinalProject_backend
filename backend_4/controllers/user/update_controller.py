@@ -61,9 +61,7 @@ def update_user_info(db, user_id: int, data: dict):
 
         # 기존 user_body_info 존재 여부 확인 후 업데이트 또는 INSERT
         existing_body = get_body_info(db, user_id)
-        print("existing_body",existing_body)
         if existing_body:
-            print("exists!!! 🟩 ")
             update_body_info(db, user_id, body_fields)
         else:
             insert_body_info(

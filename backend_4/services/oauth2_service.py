@@ -65,6 +65,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_db)):
 
     # DB에서 유저 조회
     user = get_user_by_id(db, user_id)
+    print("user",user)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -73,6 +74,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_db)):
 
     # 👉 최종 반환 (boolean role 적용)
     created_at = user["created_at"].strftime("%Y-%m-%d %H:%M")
+    return {
+        **dict(user),
+        "role": payload.get("role", False),   # ⭐ 기본값 False = 일반 사용자
+        "created_at":created_at
+    }
+    
     return {
         "id": user["id"],
         "email": user["email"],

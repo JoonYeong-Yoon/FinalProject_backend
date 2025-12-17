@@ -22,6 +22,7 @@ from models.schemas import UserCreate
 
 # user_info / user_body_info 수정용 함수들
 from models.user_info_model import update_user_info
+from models.users_model import update_basic_user
 from models.user_body_model import update_body_info
 
 
@@ -121,17 +122,20 @@ def update_profile(
     # 2) user_info 업데이트
     # ----------------------------------------
     info_fields = {}
+    # for key in [
+    #     "phone", "intro", "gender", "goal",
+    #     "dailyTime", "weekly", "prefer", "pain",
+    #     "activity", "targetPeriod"
+    # ]:
     for key in [
-        "phone", "intro", "gender", "goal",
-        "dailyTime", "weekly", "prefer", "pain",
-        "activity", "targetPeriod"
-    ]:
+        "phone", "birthdate", "gender", "goal"]:
         if key in data:
             info_fields[key] = data[key]
 
     if info_fields:
         print("🟩 user_info 업데이트:", info_fields)
-        update_user_info(db, uid, info_fields, insert_if_missing=True)
+        # update_user_info(db, uid, info_fields, insert_if_missing=True)
+        update_basic_user(db, uid, info_fields)
 
     # ----------------------------------------
     # 3) 🔥 user_body_info 업데이트 (프론트 기준!)
@@ -152,7 +156,11 @@ def update_profile(
             body_fields["bmi"] = round(w / (h * h), 1)
         else:
             pass
-        print(body_fields)
+    for key in [
+        "body_fat", "skeletal_muscle", "bmr", "visceral_fat_level","water"]:
+        if key in data:
+            body_fields[key] = data[key]
+            
     if body_fields:
         print("🟩 user_body_info 업데이트:", body_fields)
         update_body_info(db, uid, body_fields, insert_if_missing=True)
