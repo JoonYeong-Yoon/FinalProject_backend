@@ -65,7 +65,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_db)):
 
     # DB에서 유저 조회
     user = get_user_by_id(db, user_id)
-    print("user",user)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -80,14 +79,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_db)):
         "created_at":created_at
     }
     
-    return {
-        "id": user["id"],
-        "email": user["email"],
-        "name": user["name"],
-        "role": payload.get("role", False),   # ⭐ 기본값 False = 일반 사용자
-        "created_at":created_at
-    }
-
 
 # ---------------------------------------------------
 # 관리자 전용 권한 체크 함수
@@ -103,5 +94,5 @@ def admin_required(current_user = Depends(get_current_user)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="관리자만 접근할 수 있습니다."
         )
-    
+    print("current_user",current_user)
     return current_user

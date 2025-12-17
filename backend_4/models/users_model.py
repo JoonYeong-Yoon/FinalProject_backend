@@ -24,18 +24,28 @@ def get_user_by_id(db: Connection, user_id: str):
     query = f"""
     SELECT
         u.*,
-        ub.*
+        ub.*,
+        s.*,
+        sp.*
     FROM {USERS_TABLE} u
     LEFT JOIN {USER_BODY_TABLE} ub
         ON u.id = ub.user_id
+    LEFT JOIN subscriptions s
+        ON u.id = s.user_id
+    LEFT JOIN subscription_plans sp
+        ON s.plan_id = sp.id
     WHERE u.id = :user_id;
+
     """
     row = db.execute(
         text(query),
         # text(f"SELECT * FROM {USERS_TABLE} WHERE id = :id"),
         {"user_id": user_id}
     ).mappings().first()
-    return dict(row) if row else None
+    data = dict(row) if row else None
+    data.pop("password_hash", None)
+    data.pop("user_id", None)
+    return data
 
 
 # ===========================

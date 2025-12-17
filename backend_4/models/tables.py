@@ -6,3 +6,5 @@
 USERS_TABLE = "public.users"
 USER_INFO_TABLE = "public.user_info"
 USER_BODY_TABLE = "public.user_body_info"
+SUBSCRIPTION_TABLE = "public.subscriptions"
+SUBSCRIPTION_PLAN_TABLE = "public.subscription_plans"

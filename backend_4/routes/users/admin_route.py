@@ -9,8 +9,9 @@ from pydantic import BaseModel
 
 from db.database import get_db
 from services.oauth2_service import admin_required
-from models.users_model import USERS_TABLE
-
+from models.users_model import USERS_TABLE, USER_BODY_TABLE
+from models.tables import SUBSCRIPTION_TABLE, SUBSCRIPTION_PLAN_TABLE
+from models.subscription_model import set_subscription, delete_subscription
 
 # ============================================
 # 📌 요청 body 모델 (역할 변경)
@@ -36,8 +37,27 @@ def get_all_users(
     admin=Depends(admin_required)
 ):
     print("\n🟦 [ADMIN] 전체 사용자 조회 요청")
-
-    rows = db.execute(text(f"SELECT * FROM {USERS_TABLE}")).mappings().all()
+    query = f"""
+        SELECT
+            u.id as user_uuid,
+            u.name as name,
+            u.*,
+            ub.*,
+            s.id as sub_id,
+            s.status,
+            s.start_date,
+            sp.id as plan_id,
+            sp.name as plan_name
+        FROM {USERS_TABLE} u
+        LEFT JOIN {USER_BODY_TABLE} ub
+            ON u.id = ub.user_id
+        LEFT JOIN subscriptions s
+            ON u.id = s.user_id
+        LEFT JOIN subscription_plans sp
+            ON s.plan_id = sp.id
+    """
+    rows = db.execute(text(query)).mappings().all()
+    # rows = db.execute(text(f"SELECT * FROM {USERS_TABLE}")).mappings().all()
     print(f"🟩 [ADMIN] 조회된 사용자 수: {len(rows)}")
 
     return [dict(row) for row in rows]
@@ -70,21 +90,42 @@ def get_user_detail(
 # ============================================
 # 📌 3) 구독 상태 변경
 # ============================================
+# @router.post("/start")
+# def start(
+#     db=Depends(get_db), data = Body(...)
+#     ):
+#     """
+#     현재 로그인한 사용자의 구독 시작
+#     - current_user: JWT 인증 사용자
+#     - db: DB 연결
+#     반환: 구독 시작 메시지
+#     """
+#     selected_user_id = data["user_id"]
+#     plan_name = data["plan_name"]
+#     status = data["status"]
+#     print(plan_name, status)
+#     return start_subscription( selected_user_id, plan_name, status, db)
+
 @router.post("/users/{user_id}/subscription")
 def admin_change_subscription(
     user_id: str,
-    is_subscribed: bool,
     db: Session = Depends(get_db),
-    admin=Depends(admin_required)
+    admin = Depends(admin_required),
+    data = Body(...),
 ):
-    print(f"\n🟦 [ADMIN] 구독 상태 변경 요청 → ID: {user_id}, 상태: {is_subscribed}")
-
+    plan_name = data["plan_name"]
+    status = data["status"]
+    print(user_id, plan_name, status)
+    return set_subscription( user_id, plan_name, status, db)
+    
+    # print(f"\n🟦 [ADMIN] 구독 상태 변경 요청 → ID: {user_id}, 상태: {is_subscribed}")
+    # print('user_id',user_id)
     update_query = text(f"""
         UPDATE {USERS_TABLE}
-        SET is_subscribed = :sub
+        SET role = :sub
         WHERE id = :id
     """)
-
+    return {"message":"하"}
     result = db.execute(update_query, {"sub": is_subscribed, "id": user_id})
     db.commit()
 
