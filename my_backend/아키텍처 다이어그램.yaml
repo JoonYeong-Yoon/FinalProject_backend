@@ -1,0 +1,37 @@
+Client (앱/프론트엔드)
+   |
+   | POST /api/v1/routines/recommend {user_id, total_time_min}
+   v
+FastAPI Router: api/routine_recommendation.py
+   - validate request
+   - DB: SELECT users JOIN user_body_info WHERE id = user_id
+   - DB: SELECT recent activity_logs (limit, last X days)
+   - DB: SELECT exercise catalog (but filter only 17 allowed names)
+   - build user_info dict:
+       {age, gender, goal, fitness_level, bmi, weight_kg, body_fat, skeletal_muscle,
+        recent_cancellations, injury_areas}
+   |
+   v
+Service: app/services/routine_generator/builder.py
+   - enforce 17-exercise whitelist
+   - apply injury exclusions (from user_info.injury_areas)
+   - apply adaptation (TOO_HARD, TOO_LONG) but IGNORE INTERRUPTED
+   - generate 3 strategies:
+       * time_based (MET 우선)
+       * efficiency_based (샘플링 + routine_scorer)
+       * balance_based (upper/lower/core 균형)
+   - For each selected exercise:
+       call RepsPredictor.predict_for_exercise(user_info, ex_meta)
+       -> 반환: set_count, reps, rest_sec, duration_sec
+   - estimate calories per exercise (MET * weight * duration_hr)
+   - build routine summary
+   - call RoutineScorer.score(user_info, summary) to get routine score
+   |
+   v
+Return 3 routines (JSON)
+   |
+   v
+FastAPI layer may persist recommendation to:
+   - ai_recommended_routines (루틴 메타)
+   - ai_routine_items (각 운동 항목)
+   (이후 사용자 수행 시 activity_logs / activity_detail_logs에 저장되어 재학습 데이터 생성)

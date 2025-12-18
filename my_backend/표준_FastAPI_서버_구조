@@ -1,0 +1,38 @@
+my_backend
+    ├── app/
+    │    ├── api/
+    │    │    ├── routine_recommendation.py   # 루틴 추천 라우터 (POST /api/v1/routines/recommend)
+    │    │    ├── coaching.py                 # 코칭 라우터 (POST /api/v1/coaching/strat, next, finish)
+    │    │    └── activity.py                 # 액티비티(영상 업로드) 라우터(POST /upload)
+    │    ├── core/
+    │    │    ├── config.py                   # 환경 설정 로더
+    │    │    └── db.py                       # DB 연결 get_db_connection 등
+    │    ├── models/
+    │    │    ├── user.py  
+    │    │    ├── exercise.py   
+    │    │    ├── routine.py    
+    │    │    ├── activity.py                
+    │    │    └── algorithm_config.py
+    │    ├── services/
+    │    │    ├── routine_generator/
+    │    │    │     ├── builder.py            # 루틴 생성기
+    │    │    │     ├── reps_predictor.py     # 학습 모델 로드, 예측(set_count, reps, rest_sec, duration_sec), 후처리 반환
+    │    │    │     ├── scorer.py             # 루틴 요약(요약 피처)을 바탕으로 LightGBM으로 점수(0~100) 예측
+    │    │    │     ├── feature_builder.py    # BMI 계산, 운동별 칼로리 계산, 루틴 내 비율 계산     
+    │    │    │     └── mappings.py           # 한국어 <-> 영어 변환
+    │    │    ├── coaching_service.py         # 운동 루틴 진행 관리
+    │    │    ├── coaching_text.py            # 코칭 TEXT 생성
+    │    │    ├── tts_service.py              # Gemini TTS 호출 모듈
+    │    │    └── activity_service.py         # 업로드된 영상 비동기 처리 서비스 (배치/백그라운드 방식)
+    │    ├── ai_models/
+    │    │    ├── routine_scorer_lgbm.pkl     # 루틴별 루틴 점수 산출 (LightGBM)
+    │    │    ├── label_encoders.pkl          # 라벨 인코더(goal 등 범주형을 동일하게 인코딩하여 모델 입력)
+    │    │    └── reps_predictor_model.pkl    # 운동별 세트·반복·휴식 예측 (LightGBM)
+    │    ├── __init__.py                      # app을 패키지로 인식
+    │    ├── main.py                          # FastAPI 진입점 - 라우터 등록 및 공통 미들웨어 설정
+    │    ├── .env                             # 환경 변수(DB 환경, AI 모델 경로, Gemini_API)
+    │    ├── docker-composefile.yml
+    │    ├── Dockerfile
+    │    └── requirements.txt
+    ├── postgres/data/
+    └── docker-composefile.yml
