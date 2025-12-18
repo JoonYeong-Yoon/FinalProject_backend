@@ -4,3 +4,5 @@ my_backend/.env
 **/__pycache__
 **/*.pyc
 .env
+wearable_backend/chroma_data/*
+!wearable_backend/chroma_data/*.sqlite
