@@ -1,2 +1,6 @@
 my_backend/postgres
 my_backend/.env
+
+**/__pycache__
+**/*.pyc
+.env
