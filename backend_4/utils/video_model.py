@@ -82,7 +82,7 @@ class VideoModel:
         scores = np.array(scores) # 578, 5
         return scores
     def vis_frame(self, frames, key_points, scores):
-        output = frames
+        output = frames.copy()
         for i, (img, score, key_point) in enumerate(
             tqdm.tqdm(zip(output, scores, key_points), total=len(output))
         ):
@@ -96,11 +96,13 @@ class VideoModel:
             for j,(x,y) in enumerate(pts):
                 cv2.circle(img, (x,y), 4, joint_colors.get(j,(200,200,200)), -1)
             y0 = 30
-            for name, s in zip(cond_names, score):
+            for name, s in zip(self.cond_names, score):
                 img = self.put_korean_text(
-                    img, f"{name}: {s:.2f}", (20,y0), self.score_to_color(s))
+                    img, f"{name['condition']}: {s:.2f}", (20,y0), self.score_to_color(s))
+                output[i] = img
                 y0 += 28
         return np.array(output)
+
 
 cond_names = [{
     'condition': '척추의 중립', 'value': True}, 
@@ -134,9 +136,20 @@ kneepushup_model = VideoModel(
 
 
 # video_path = r"c:\Users\human\Documents\카카오톡 받은 파일\kneepushup\video_kneepushup.mp4"
-# frames = video_model.get_all_frames(video_path)
-# keypoints = video_model.get_keypoints(frames)
-# scores = video_model.get_score(frames, keypoints)
-# output = video_model.vis_frame(frames, keypoints, scores)
+# kneepushup_model.cond_names
+# frames = kneepushup_model.get_all_frames(video_path)
+# keypoints = kneepushup_model.get_keypoints(frames)
+# scores = kneepushup_model.get_score(frames, keypoints)
+# output = kneepushup_model.vis_frame(frames, keypoints, scores)
+# out_video_path= "ex2.mp4"
+# cap = cv2.VideoCapture(video_path)
+# fps = cap.get(cv2.CAP_PROP_FPS)
+# W, H = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-# np.array(output)
+# writer = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (W,H))
+# for img in tqdm.tqdm(output):
+#     writer.write(img)
+
+# writer.release()
+
+
