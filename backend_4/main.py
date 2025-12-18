@@ -8,6 +8,7 @@ from routes.users.auth_route import router as auth_router
 from routes.users.admin_route import router as admin_router
 from routes.users.profile_route import router as profile_router
 from routes.admin_log_route import router as admin_log_router
+from routes.ai import router as ai_router
 from routes import subscription_route, video_route
 # ⭐ iOS Health API 추가
 from ios.health import router as ios_router
@@ -60,6 +61,9 @@ app.include_router(profile_router)
 app.include_router(admin_router, prefix="/admin")
 # ✔ 관리자 로그 API
 app.include_router(admin_log_router, prefix="/admin")
+
+app.include_router(ai_router, prefix="/ai", tags=["ai"])
+
 # ===============================
 # 🔥 테스트용 루트 엔드포인트
 # ===============================
