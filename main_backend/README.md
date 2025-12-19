@@ -218,16 +218,16 @@ AI-Trainer-Backend/
 
 ```bash
 
-conda create -n final_backend python==3.10 -y
-conda activate final_backend
+conda create -n final_backend_main python==3.10 -y
+conda activate final_backend_main
 cd FinalProject_backend
-cd backend_4
+cd main_backend
 pip install -r requirements.txt
 ```
 
 ```bash
 # FinalProject_backend
 cd FinalProject_backend
-cd backend_4
+cd main_backend
 python main.py
 ```
