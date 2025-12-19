@@ -16,3 +16,4 @@ async def analyze_exercise_video(video: UploadFile = File(...)):
             {"message":"테스트 실패", "detail":str(e)},
             status_code=status.HTTP_404_NOT_FOUND
         )
+

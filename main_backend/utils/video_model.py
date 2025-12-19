@@ -50,6 +50,7 @@ class VideoModel:
         draw = ImageDraw.Draw(img_pil)
         draw.text(pos, text, font=self.FONT, fill=(color[2], color[1], color[0]))
         return cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+    
     def get_keypoints(self, frames):
         detector = self.key_point_model 
         # 관절 인식
@@ -62,6 +63,7 @@ class VideoModel:
         xy_data = [self.keypoints_npform(i.reshape(-1)) for i in xy_data]
         xy_data = np.array(xy_data) # (578, 48)
         return xy_data
+    
     def get_score(self, frames, key_points, seq_len = 16):
         cond_dim = len(self.cond_names)
         scores = []
@@ -81,6 +83,7 @@ class VideoModel:
             scores.append(score)
         scores = np.array(scores) # 578, 5
         return scores
+    
     def vis_frame(self, frames, key_points, scores):
         output = frames.copy()
         for i, (img, score, key_point) in enumerate(
