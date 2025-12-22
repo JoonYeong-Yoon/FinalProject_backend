@@ -22,11 +22,30 @@ def get_user_by_email(db: Connection, email: str):
 # ===========================
 def get_user_by_id(db: Connection, user_id: str):
     query = f"""
-    SELECT
+        SELECT
         u.*,
-        ub.*,
-        s.*,
-        sp.*
+
+        ub.user_id AS user_body_id,
+        ub.height_cm,
+        ub.weight_kg,
+        ub.body_fat,
+        ub.skeletal_muscle,
+        ub.bmr,
+        ub.visceral_fat_level,
+        ub.water,
+        ub.bmi,
+        ub.updated_at,
+
+        s.id AS subscription_id,
+        s.plan_id,
+        s.status,
+        s.start_date,
+        s.end_date,
+        s.next_billing_date,
+
+        sp.id AS subscription_plan_id,
+        sp.price,
+        sp.description
     FROM {USERS_TABLE} u
     LEFT JOIN {USER_BODY_TABLE} ub
         ON u.id = ub.user_id
@@ -43,6 +62,7 @@ def get_user_by_id(db: Connection, user_id: str):
         {"user_id": user_id}
     ).mappings().first()
     data = dict(row) if row else None
+    print("data", data, row, user_id)
     data.pop("password_hash", None)
     data.pop("user_id", None)
     return data
@@ -84,9 +104,9 @@ def update_basic_user(db: Connection, user_id: str, fields: dict):
     set_clause = ", ".join([f"{k} = :{k}" for k in fields.keys()])
 
     sql = text(f"""
-        UPDATE {USERS_TABLE}
+        UPDATE {USER_BODY_TABLE}
         SET {set_clause}
-        WHERE id = :id
+        WHERE user_id = :id
     """)
 
     db.execute(sql, {**fields, "id": user_id})

@@ -94,24 +94,27 @@ def update_profile(
 ):
     print("\n🟦 [AUTH] 프로필 업데이트 요청:", data)
     uid = current_user["id"]
-
     # ----------------------------------------
     # 1) users 테이블 업데이트
     # ----------------------------------------
     user_fields = {}
-    if "name" in data:
-        user_fields["name"] = data["name"]
+    if "birth_date" in data:
+        data["birthdate"] = data["birth_date"]
 
-    if "email" in data:
-        user_fields["email"] = data["email"]
+    for col in ["email", "name", "phone", "gender", "goal","birthdate"]:
+        if col in data:
+            user_fields[col] = data[col]
+
+    # if "email" in data:
+    #     user_fields["email"] = data["email"]
 
     if user_fields:
         print("🟩 users 업데이트:", user_fields)
+        set_clause = ", ".join([f"{col} = :{col}" for col in user_fields.keys()])
         db.execute(
-            text("""
+            text(f"""
                 UPDATE public.users
-                SET name = COALESCE(:name, name),
-                    email = COALESCE(:email, email)
+                SET {set_clause}
                 WHERE id = :id
             """),
             {**user_fields, "id": uid}
@@ -127,9 +130,16 @@ def update_profile(
     #     "dailyTime", "weekly", "prefer", "pain",
     #     "activity", "targetPeriod"
     # ]:
+    if "height" in data:
+        data["height_cm"] = data["height"]
+    if "weight" in data:
+        data["weight_kg"] = data["weight"]
     for key in [
-        "phone", "birthdate", "gender", "goal"]:
+        "height_cm", "weight_kg"]:
+        
         if key in data:
+            if data[key]=="" or data[key] is None:
+                data[key] = 0
             info_fields[key] = data[key]
 
     if info_fields:
@@ -153,7 +163,10 @@ def update_profile(
         if (not data["height_cm"] is None)&(not data["weight_kg"] is None):
             h = data["height_cm"] / 100
             w = data["weight_kg"]
-            body_fields["bmi"] = round(w / (h * h), 1)
+            if h!=0:
+                body_fields["bmi"] = round(w / (h * h), 1)
+            else:
+                body_fields["bmi"] = 0
         else:
             pass
     for key in [

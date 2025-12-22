@@ -16,6 +16,7 @@ def login_user(data: dict, db):
 
     # 1. 이메일 기준 유저 조회
     user = get_user_by_email(db, data["email"])
+    print(user)
     print("🟩 [LOGIN_USER] 조회된 유저:", user)  # 디버깅
 
     if not user:

@@ -49,7 +49,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_db)):
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM]
         )
-
         user_id: str = payload.get("sub")
         if not user_id:
             raise HTTPException(

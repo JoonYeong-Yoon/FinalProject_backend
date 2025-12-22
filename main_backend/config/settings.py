@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # PostgreSQL 데이터베이스 연결 URL
     # 형식: postgresql://<username>:<password>@<host>:<port>/<database_name>
-    DATABASE_URL: str = "postgresql://postgres:postgres@192.168.0.35:5432/home_training_db"
+    DATABASE_URL: str = "postgresql://postgres:postgres@192.168.0.38:5432/home_training_db_v2"
 
     # Pydantic 설정 클래스 Config 정의
     # .env 파일로부터 설정값을 읽어오도록 지정
