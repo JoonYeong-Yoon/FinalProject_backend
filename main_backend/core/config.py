@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-POSTGRES_DB = os.getenv("POSTGRES_DB", "home_training_db")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "home_training_db_v2")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
 DB_HOST = os.getenv("DB_HOST", "192.168.0.38")   # Docker 환경에서는 'db' 호스트 사용

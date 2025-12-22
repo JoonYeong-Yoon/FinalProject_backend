@@ -72,7 +72,7 @@ def recommend_routine(req: RecommendReq, token: str = Depends(oauth2_scheme)):
             algorithms=[settings.ALGORITHM]
         )
         user_id: str = payload.get("sub")
-        
+        print("user_id",user_id)
         conn = get_db_connection()
         cur = conn.cursor()
         # users + user_body_info 조회 (DB 필드는 영어)
@@ -80,7 +80,7 @@ def recommend_routine(req: RecommendReq, token: str = Depends(oauth2_scheme)):
             SELECT u.id, u.goal, u.fitness_level, u.gender, u.birthdate,
                    b.height_cm, b.weight_kg, b.body_fat, b.skeletal_muscle, b.bmr, b.visceral_fat_level, b.water
             FROM users u
-            JOIN user_body_info b ON u.id = b.user_id
+            LEFT JOIN user_body_info b ON u.id = b.user_id
             WHERE u.id = %s
         """, (user_id,))
         rec = cur.fetchone()
@@ -188,7 +188,7 @@ def recommend_routine(req: RecommendReq, token: str = Depends(oauth2_scheme)):
     
 
     except Exception as e:
-        print("🔥 RECOMMEND ERROR 🔥")
+        print("🔥 RECOMMEND ERROR 🔥",e)
         traceback.print_exc()
         raise
 
