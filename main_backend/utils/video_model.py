@@ -26,6 +26,7 @@ class VideoModel:
         self.score_model.eval()
         self.key_point_model = YOLO(self.key_point_model_path)
         self.preprocess = transform
+
     def get_all_frames(self, video_path):
         cap = cv2.VideoCapture(video_path)
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -38,13 +39,16 @@ class VideoModel:
                 break
             frames.append(frame)
         return frames
+    
     def keypoints_npform(self, xy):
         if xy.shape[0]<48:
             return np.concatenate([xy, np.zeros(48 - xy.shape[0])])
         else:
             return xy
+        
     def score_to_color(self, s, th=0.5):
         return (0,255,0) if s >= th else (0,0,255)
+    
     def put_korean_text(self, frame, text, pos, color):
         img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(img_pil)

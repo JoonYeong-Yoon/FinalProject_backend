@@ -33,7 +33,6 @@ EXERCISE_KO_TO_EN = {
 
 EXERCISE_EN_TO_KO = {v: k for k, v in EXERCISE_KO_TO_EN.items()}
 
-
 # ---------------------------------------------------------------
 # 2) GOAL (사용자 운동 목적)
 # ---------------------------------------------------------------
@@ -59,6 +58,16 @@ INJURY_KO_TO_EN = {
 }
 INJURY_EN_TO_KO = {v: k for k, v in INJURY_KO_TO_EN.items()}
 
+INJURY_EXERCISE_MAP = {
+    "SHOULDER": {"burpee_test", "plank", "push_up", "knee_push_up", "y_exercise"},
+    "ELBOW": {"burpee_test", "plank", "push_up", "knee_push_up"},
+    "WAIST": {"standing_side_crunch", "burpee_test", "good_morning", "lying_leg_raise", "crunch", 
+              "bicycle_crunch", "scissor_cross", "hip_thrust", "plank", "push_up", "knee_push_up", "y_exercise"},
+    "KNEE": {"burpee_test", "step_forward_dynamic_lunge", "step_backward_dynamic_lunge", "side_lunge",
+             "cross_lunge", "good_morning"},
+    "ANKLE": {"burpee_test", "side_lunge", "cross_lunge", "good_morning"},
+    "ETC": set(),
+}
 
 # ---------------------------------------------------------------
 # 4) CANCELLATION REASON (루틴 취소 이유)
@@ -122,3 +131,4 @@ def map_en_to_ko(value: str, mapping: dict) -> str:
     if value is None:
         return value
     return mapping.get(value, value)
+

@@ -78,16 +78,16 @@ def recommend_routine(req: RecommendReq, token: str = Depends(oauth2_scheme)):
         # users + user_body_info 조회 (DB 필드는 영어)
         cur.execute("""
             SELECT u.id, u.goal, u.fitness_level, u.gender, u.birthdate,
-                   b.height_cm, b.weight_kg, b.body_fat, b.skeletal_muscle, b.bmr, b.visceral_fat_level, b.water
+                   b.height_cm, b.weight_kg, b.body_fat, b.skeletal_muscle,
+                   b.bmr, b.visceral_fat_level, b.water
             FROM users u
-            LEFT JOIN user_body_info b ON u.id = b.user_id
+            JOIN user_body_info b ON u.id = b.user_id
             WHERE u.id = %s
         """, (user_id,))
         rec = cur.fetchone()
+
         if not rec:
             raise HTTPException(status_code=404, detail="User not found")
-
-        # unpack (DB 순서와 일치)
 
         (
             uid, goal_en, fitness_level, gender, birthdate,
@@ -130,10 +130,9 @@ def recommend_routine(req: RecommendReq, token: str = Depends(oauth2_scheme)):
         }
 
         # 4️⃣ 운동 카탈로그 로드
-        # caution
         cur.execute("""
             SELECT id, name, type, posture, category_1,
-                   category_2, difficulty, MET, description
+                   category_2, difficulty, MET, description, caution
             FROM exercise
         """)
         rows = cur.fetchall()
@@ -186,51 +185,13 @@ def recommend_routine(req: RecommendReq, token: str = Depends(oauth2_scheme)):
 
         return out
     
-
     except Exception as e:
-        print("🔥 RECOMMEND ERROR 🔥",e)
+        print("🔥 RECOMMEND ERROR 🔥")
         traceback.print_exc()
         raise
 
     finally:
         conn.close()
-
-    # 2) generate routines (모든 내부는 영어 기반)
-    routines = generate_three_strategy_routines(user_info, catalog, time_min)
-
-    # 3) 응답 변환 — 영어 → 한국어 필드 추가 (원본 영어 값은 유지)
-    out = []
-    for r in routines:
-        ex_list = []
-        for it in r["exercises"]:
-            name_en = it.get("name")
-            # 영어->한국어 (없으면 영어 그대로)
-            name_ko = map_en_to_ko(name_en, EXERCISE_EN_TO_KO)
-            cat_en = (it.get("exercise_meta", {}).get("category_1") or "").upper()
-            cat_ko = map_en_to_ko(cat_en, CATEGORY1_EN_TO_KO)
-            ex_list.append({
-                "exercise_id": it.get("exercise_id"),
-                "name": name_ko,  # 프론트에서는 name에 한국어 표기(요청에 맞춤)
-                "sets": it.get("sets"),
-                "reps": it.get("reps"),
-                "rest_sec": it.get("rest_sec"),
-                "duration_sec": it.get("duration_sec"),
-                "est_calories": it.get("est_calories"),
-                # 상세 응답에 영어도 필요하면 추가 필드로 넣을 수 있음
-                "name_en": name_en,
-                "category_en": cat_en,
-                "name_ko": name_ko,
-                "category_ko": cat_ko,
-            })
-
-        out.append({
-            "strategy": r.get("strategy"),
-            "total_time_min": r.get("total_time_min"),
-            "total_calories": r.get("total_calories"),
-            "score": r.get("score"),
-            "exercises": ex_list
-        })
-    return out
 
 
 # =========================
@@ -303,11 +264,11 @@ def select_ai_routine(ai_routine_id: str, token: str = Depends(oauth2_scheme)):
         )
         user_id: str = payload.get("sub")
         
-
+        print("user_id", user_id)
         # 1️⃣ AI 루틴 확인
         # , recommend_strategy
         cur.execute("""
-            SELECT user_id, goal_type,
+            SELECT user_id, goal_type, recommend_strategy,
                    total_time_min, total_calories
             FROM ai_recommended_routines
             WHERE id = %s
@@ -320,7 +281,7 @@ def select_ai_routine(ai_routine_id: str, token: str = Depends(oauth2_scheme)):
         (
             ai_user_id,
             goal_type,
-            # recommend_strategy,
+            recommend_strategy,
             total_time_min,
             total_calories,
         ) = row
@@ -332,19 +293,22 @@ def select_ai_routine(ai_routine_id: str, token: str = Depends(oauth2_scheme)):
         # recommend_strategy,goal_type,source_ai_routine_id,
 
         cur.execute("""
-            INSERT INTO activity_logs (
+            INSERT INTO user_routines (
                 user_id,
+                goal_type,
+                source_ai_routine_id,
+                recommend_strategy,
                 total_time_min,
                 total_calories,
                 status
             )
-            VALUES (%s, %s, %s, 'CONFIRMED')
+            VALUES (%s, %s, %s, %s, %s, %s, 'CONFIRMED')
             RETURNING id
         """, (
             user_id,
-            # goal_type,
-            # ai_routine_id,
-            # recommend_strategy,
+            goal_type,
+            ai_routine_id,
+            recommend_strategy,
             total_time_min,
             total_calories,
         ))
@@ -353,31 +317,32 @@ def select_ai_routine(ai_routine_id: str, token: str = Depends(oauth2_scheme)):
 
         # # 3️⃣ 아이템 복사
         # # step_number drop
-        # cur.execute("""
-        #     SELECT exercise_id, set_count,
-        #            reps, duration_sec, rest_sec
-        #     FROM ai_routine_items
-        #     WHERE ai_routine_id = %s
-        #     ORDER BY step_number
-        # """, (ai_routine_id,))
+        cur.execute("""
+            SELECT exercise_id, step_number, set_count,
+                   reps, duration_sec, rest_sec
+            FROM ai_routine_items
+            WHERE ai_routine_id = %s
+            ORDER BY step_number
+        """, (ai_routine_id,))
 
-        # for ex in cur.fetchall():
-        #     # user_routine_items -> routine_items
-        #     # user_routine_id -> routine_id
-        #     # step_number
-        #     cur.execute("""
-        #         INSERT INTO routine_items (
-        #             routine_id,
-        #             exercise_id,
-        #             set_count,
-        #             reps,
-        #             duration_sec,
-        #             rest_sec
-        #         )
-        #         VALUES (%s, %s, %s, %s, %s, %s)
-        #     """, (user_routine_id, *ex))
+        for ex in cur.fetchall():
+            # user_routine_items -> routine_items
+            # user_routine_id -> routine_id
+            # step_number
+            cur.execute("""
+                INSERT INTO user_routine_items (
+                    user_routine_id,
+                    exercise_id,
+                    step_number,
+                    set_count,
+                    reps,
+                    duration_sec,
+                    rest_sec
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (user_routine_id, *ex))
 
-        # conn.commit()
+        conn.commit()
 
         return {
             "user_routine_id": str(user_routine_id),

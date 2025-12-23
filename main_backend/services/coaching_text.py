@@ -19,9 +19,25 @@ def generate_start_text(first_exercise: Dict) -> str:
 
     return (
         "운동을 시작하기 전에 충분히 스트레칭을 해주세요. "
-        f"준비되셨으면 {exercise_name} 1세트를 시작해 주세요."
+        f"준비되셨으면 {exercise_name} 1세트를 시작합니다."
     )
 
+# ===============================
+# 운동 시작 전 안내
+# ===============================
+def generate_exercise_intro_text(exercise: dict) -> str:
+    """
+    운동 시작 시 1회 안내 (설명 + 주의)
+    """
+    parts = []
+
+    if exercise.get("description"):
+        parts.append(exercise["description"].strip())
+
+    if exercise.get("caution"):
+        parts.append("Please be careful. " + exercise["caution"].strip())
+
+    return " ".join(parts)
 
 # ===============================
 # 다음 세트 / 다음 운동 안내
@@ -48,7 +64,7 @@ def generate_rest_text(rest_sec: int) -> str:
     if not rest_sec or rest_sec <= 0:
         return "잠깐 휴식하세요."
 
-    return f"{rest_sec}초간 휴식하세요. 호흡을 정리해 주세요."
+    return f"{rest_sec}초 간 휴식하세요. 호흡을 정리해 주세요."
 
 
 # ===============================
@@ -71,6 +87,6 @@ def generate_finish_text(completion_ratio: float) -> str:
         f"운동을 마쳤습니다. "
         f"오늘 루틴의 {percent}퍼센트를 완료했어요. "
         f"{message} "
-        "천천히 스트레칭으로 마무리 하시면서 "
+        "천천히 스트레칭으로 마무리 하면서 "
         "호흡을 정리하고 충분히 휴식해 주세요."
     )

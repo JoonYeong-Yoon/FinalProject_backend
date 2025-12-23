@@ -12,6 +12,6 @@
 .env
 wearable_backend/chroma_data/*
 !wearable_backend/chroma_data/*.sqlite
-anaconda_envs/**/*
+ananconda_envs/**/*
 main_backend/anaconda_envs/
-anaconda_envs
+ananconda_envs

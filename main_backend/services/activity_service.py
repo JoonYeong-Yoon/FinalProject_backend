@@ -26,7 +26,7 @@ def process_uploaded_video(file_path: str, activity_id: str, user_id: str):
     conn = get_db_connection()
     cur = conn.cursor()
     # 예시: activity_logs.status = 'COMPLETED', activity_detail_logs 추가 등
-    cur.execute("UPDATE activity_logs SET status=%s WHERE id=%s;", ("COMPLETED", activity_id))
+    cur.execute("UPDATE activity_logs SET status=%s WHERE id=%s;", ("FINISHED", activity_id))
     conn.commit()
     conn.close()
     # 실제 분석 결과를 activity_detail_logs, pose_analysis 등에 기록해야 함.

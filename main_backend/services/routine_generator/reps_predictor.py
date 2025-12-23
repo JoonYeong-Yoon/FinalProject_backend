@@ -21,7 +21,6 @@ RepsPredictor 모듈 (개선판)
     - 모델/인코더 없거나 예측 실패 시 규칙 기반 폴백 반환.
     - 한글/영어 명칭 상호변환을 위해 mappings를 사용(있으면).
 """
-
 from __future__ import annotations
 import os
 import pickle

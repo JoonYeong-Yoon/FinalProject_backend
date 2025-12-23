@@ -1,7 +1,8 @@
 """
 더미 데이터 생성 모듈
 """
-import psycopg2, os
+import psycopg2
+import os
 from dotenv import load_dotenv
 import uuid
 import random
@@ -10,16 +11,17 @@ from datetime import datetime, timedelta
 # =========================
 # DB CONNECTION
 # =========================
-
 load_dotenv()
 
 DSN = {
-    "host": os.getenv("POSTGRES_HOST", "localhost"),
+    "host": os.getenv("DB_HOST", "localhost"),      
     "port": int(os.getenv("POSTGRES_PORT", 5432)),
     "dbname": os.getenv("POSTGRES_DB"),
     "user": os.getenv("POSTGRES_USER"),
     "password": os.getenv("POSTGRES_PASSWORD"),
 }
+
+print("DB CONNECT INFO:", DSN)  # ✅ 디버깅용 (나중에 삭제)
 
 conn = psycopg2.connect(**DSN)
 
@@ -63,7 +65,7 @@ def create_users(n=30):
         user_id = uuid.uuid4()
         gender = random.choice(GENDERS)
         fitness = random.choice(FITNESS_LEVELS)
-
+        
         cur.execute("""
             INSERT INTO users (
                 id, email, password_hash, gender, goal, fitness_level
@@ -71,7 +73,7 @@ def create_users(n=30):
             VALUES (%s,%s,%s,%s,%s,%s)
         """, (
             str(user_id),
-            f"user{i}@test.com",
+            f"user_{uuid.uuid4().hex[:8]}@test.com",
             "hashed_pw",
             gender,
             random.choice(GOALS),
@@ -127,7 +129,7 @@ def create_ai_routines(users):
             cur.execute("""
                 INSERT INTO ai_recommended_routines (
                     id, user_id, goal_type, target_value,
-                    ai_model_type, total_time_min, total_calories
+                    recommend_strategy, total_time_min, total_calories
                 )
                 VALUES (%s,%s,%s,%s,%s,%s,%s)
             """, (
@@ -188,7 +190,7 @@ def create_activity_logs(users, routines):
         cur.execute("""
             INSERT INTO activity_logs (
                 id, user_id, ai_routine_id, status,
-                start_time, end_time, cancellation_reason,
+                started_at, ended_at, cancellation_reason,
                 injury_area, completed_ratio, total_time_min,
                 total_calories, score
             )

@@ -28,8 +28,8 @@ from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL_PATH = "app/ai_models/routine_scorer_model.pkl"
-DEFAULT_ENCODERS_PATH = "app/ai_models/routine_scorer_encoders.pkl"
+DEFAULT_MODEL_PATH = "ai_models/routine_scorer_model.pkl"
+DEFAULT_ENCODERS_PATH = "ai_models/routine_scorer_encoders.pkl"
 
 # goal 한글→영어 변환 지원
 try:

@@ -24,3 +24,5 @@ pandas
 lightgbm
 scikit-learn
 Faker==19.3.0
+
+edge-tts
