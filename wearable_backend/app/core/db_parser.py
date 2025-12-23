@@ -1,5 +1,6 @@
 import statistics
 from typing import Dict
+from datetime import datetime, timezone, timedelta
 
 
 # =============================================================
@@ -15,45 +16,63 @@ def _total(values):
     return sum(values) if values else 0
 
 
+def _epoch_millis_to_local_date(epoch_millis: int) -> int:
+    """
+    epoch_millis → local_date (Epoch Day Number) 변환
+
+    Args:
+        epoch_millis: 밀리초 타임스탬프 (예: 1765983600000)
+
+    Returns:
+        Epoch Day Number (예: 20440)
+    """
+    if not epoch_millis:
+        return None
+
+    # 밀리초 → 초
+    epoch_seconds = epoch_millis / 1000
+
+    # UTC 기준 datetime
+    dt = datetime.fromtimestamp(epoch_seconds, tz=timezone.utc)
+
+    # 한국 시간 (UTC+9) 적용
+    kst = timezone(timedelta(hours=9))
+    dt_kst = dt.astimezone(kst)
+
+    # Epoch Day 계산 (1970-01-01부터의 일수)
+    epoch = datetime(1970, 1, 1, tzinfo=kst)
+    days = (dt_kst.date() - epoch.date()).days
+
+    return days
+
+
 def _init_day_bucket():
     """
-    정규화 이전 raw 수집용 bucket
-    - 단위 혼재 허용
-    - preprocess에서 통합 처리됨
+    Samsung Health Connect ZIP 파싱용 bucket
+    지정된 12개 항목만 수집
     """
     return {
         # Sleep
-        "sleep": [],  # minutes or hours (platform-specific)
+        "sleep": [],  # minutes
         # Body
-        "weight": [],  # kg or g
-        "height": [],  # m or cm
-        "body_fat": [],
-        "lean_body": [],
+        "weight": [],  # gram → kg
+        "height": [],  # meter
         # Activity
         "steps": [],
         "distance": [],  # meter
         "steps_cadence": [],
-        "exercise_time": [],  # minutes
-        "flights": [],
         # Calories
-        "active_calories": [],
         "total_calories": [],
-        "calories_intake": [],
+        "active_calories": [],
         # Vitals
         "heart_rate": [],
         "resting_heart_rate": [],
-        "walking_heart_rate": [],
-        "hrv": [],
         "oxygen_saturation": [],
-        # Medical
-        "systolic": [],
-        "diastolic": [],
-        "glucose": [],
     }
 
 
 # =============================================================
-# 1️⃣ 날짜별 raw_json 생성 (RAG / 확장용)
+# 날짜별 raw_json 생성 (Samsung Health Connect ZIP 전용)
 # =============================================================
 
 
@@ -61,6 +80,12 @@ def parse_db_json_to_raw_data_by_day(db_json: dict) -> Dict[int, dict[str, float
     """
     Health Connect SQLite DB(JSON 변환 결과)를 기반으로
     날짜별 raw_json을 생성한다.
+
+    파싱 항목 (12개):
+    - sleep, sleep_hr, weight, height
+    - steps, distance, stepsCadence
+    - totalCaloriesBurned, calories
+    - heartRate, restingHeartRate, oxygenSaturation
 
     return:
       {
@@ -99,7 +124,7 @@ def parse_db_json_to_raw_data_by_day(db_json: dict) -> Dict[int, dict[str, float
         add(date, "distance", row.get("distance", 0))
 
     # ---------------------------------------------------------
-    # 걸음 빈도(step cadence)
+    # 걸음 빈도 (step cadence)
     # ---------------------------------------------------------
     for row in db_json.get("steps_cadence_record_table", []):
         date = row.get("local_date")
@@ -133,13 +158,20 @@ def parse_db_json_to_raw_data_by_day(db_json: dict) -> Dict[int, dict[str, float
         add(date, "active_calories", kcal)
 
     # ---------------------------------------------------------
-    # 심박수
+    # 심박수 (Series 테이블에서 가져오기)
     # ---------------------------------------------------------
-    for row in db_json.get("heart_rate_record_table", []):
-        date = row.get("local_date")
+    for row in db_json.get("heart_rate_record_series_table", []):
+        epoch_millis = row.get("epoch_millis")
+        bpm = row.get("beats_per_minute", 0)
+
+        if not epoch_millis or not bpm:
+            continue
+
+        date = _epoch_millis_to_local_date(epoch_millis)
         if date is None:
             continue
-        add(date, "heart_rate", row.get("value", 0))
+
+        add(date, "heart_rate", bpm)
 
     # ---------------------------------------------------------
     # 휴식기 심박수
@@ -158,8 +190,9 @@ def parse_db_json_to_raw_data_by_day(db_json: dict) -> Dict[int, dict[str, float
         if date is None:
             continue
         add(date, "oxygen_saturation", row.get("percentage", 0))
+
     # ---------------------------------------------------------
-    # 체중 (gram)
+    # 체중 (gram → kg)
     # ---------------------------------------------------------
     for row in db_json.get("weight_record_table", []):
         date = row.get("local_date")
@@ -194,38 +227,31 @@ def parse_db_json_to_raw_data_by_day(db_json: dict) -> Dict[int, dict[str, float
         add(date, "sleep", minutes)
 
     # ---------------------------------------------------------
-    # 날짜별 raw_json 생성
+    # 날짜별 raw_json 생성 (12개 항목)
     # ---------------------------------------------------------
     result_by_day = {}
 
     for date_key, d in grouped.items():
+        sleep_min = _total(d["sleep"])
+
         result_by_day[date_key] = {
             # Sleep
-            "sleep": _total(d["sleep"]),
+            "sleep": sleep_min,
+            "sleep_hr": sleep_min / 60 if sleep_min > 0 else 0,
             # Body
             "weight": _mean(d["weight"]),
             "height": _mean(d["height"]),
             # Activity
-            "distance": _total(d["distance"]),
             "steps": _total(d["steps"]),
+            "distance": _total(d["distance"]),
             "stepsCadence": _mean(d["steps_cadence"]),
             # Calories
-            "calories": _total(d["active_calories"]),
             "totalCaloriesBurned": _total(d["total_calories"]),
+            "calories": _total(d["active_calories"]),
             # Vitals
-            "oxygenSaturation": _mean(d["oxygen_saturation"]),
             "heartRate": _mean(d["heart_rate"]),
             "restingHeartRate": _mean(d["resting_heart_rate"]),
-            # Not provided by Samsung ZIP
-            "exerciseTime": 0,
-            "flights": 0,
-            "bodyFat": 0,
-            "leanBody": 0,
-            "walkingHeartRate": 0,
-            "hrv": 0,
-            "systolic": 0,
-            "diastolic": 0,
-            "glucose": 0,
+            "oxygenSaturation": _mean(d["oxygen_saturation"]),
         }
 
     return result_by_day

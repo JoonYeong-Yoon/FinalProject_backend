@@ -1,6 +1,8 @@
 """
-Chat Generator - 자유형 챗봇 응답 생성기 (간결화 버전)
-응답 길이: 기존 대비 약 50% 축소
+Chat Generator - 개선 버전
+- 기본: 최신 데이터 기반 응답
+- 시간 표현 감지: 해당 날짜/기간 데이터 사용
+- 비교/패턴 키워드: 의미 유사도 검색 활용
 """
 
 import os
@@ -18,7 +20,7 @@ from app.core.health_interpreter import (
 from app.config import LLM_MODEL_MAIN, LLM_TEMPERATURE
 
 # ✅ 챗봇 응답용 토큰 제한 (간결화)
-CHAT_MAX_TOKENS = 400  # 기존 2048 → 400으로 축소
+CHAT_MAX_TOKENS = 400
 
 
 class ChatGenerator:
@@ -44,7 +46,7 @@ class ChatGenerator:
         return resp.choices[0].message.content
 
     # ================================================================
-    # 2) System Prompt 생성 (간결화)
+    # 2) System Prompt 생성
     # ================================================================
     def _build_system_prompt(self, persona_prompt: str, context_type: str) -> str:
         """간결한 시스템 프롬프트 생성"""
@@ -72,6 +74,12 @@ class ChatGenerator:
 - 운동 목록은 별도 포맷으로 제공됨
 - 간단한 격려만 추가
 """
+        elif context_type == "comparison":
+            base_instructions += """
+## 비교/패턴 분석 응답
+- 여러 날짜 데이터 비교 시 핵심 차이점만 언급
+- 트렌드가 있으면 간단히 설명
+"""
         else:
             base_instructions += """
 ## 일반 대화
@@ -81,23 +89,44 @@ class ChatGenerator:
         return base_instructions
 
     # ================================================================
-    # 3) RAG 데이터 포맷팅 (간소화)
+    # 3) 데이터 컨텍스트 포맷팅
     # ================================================================
-    def _format_rag_brief(self, rag: dict) -> str:
-        """RAG 결과 간소화"""
-        similar = rag.get("similar_days", [])
+    def _format_data_context(self, rag_result: dict, message: str) -> str:
+        """RAG 결과를 LLM 컨텍스트로 포맷팅"""
+        similar = rag_result.get("similar_days", [])
+        mode = rag_result.get("mode", "unknown")
+
         if not similar:
-            return ""
+            return "데이터 없음"
 
-        # 최근 1개만 간략히
-        item = similar[0]
-        raw = item.get("raw", {})
-        return (
-            f"유사패턴: 수면 {raw.get('sleep_hr', 0)}h, 걸음 {raw.get('steps', 0):,}보"
-        )
+        # 단일 데이터 (최신 or 특정 날짜)
+        if len(similar) == 1:
+            item = similar[0]
+            raw = item.get("raw", {})
+            date = item.get("date", "")
+            health_context = build_health_context_for_llm(raw)
+            return f"[{date} 데이터]\n{health_context}"
+
+        # 복수 데이터 (범위 or 유사도)
+        context_parts = []
+        for item in similar[:5]:  # 최대 5개
+            raw = item.get("raw", {})
+            date = item.get("date", "")
+
+            # 간략한 요약
+            sleep = raw.get("sleep_hr", 0)
+            steps = raw.get("steps", 0)
+            score = item.get("health_score", 0)
+
+            summary = (
+                f"[{date}] 수면 {sleep:.1f}h, 걸음 {steps:,}보, 건강점수 {score}점"
+            )
+            context_parts.append(summary)
+
+        return "\n".join(context_parts)
 
     # ================================================================
-    # 4) 운동 루틴 템플릿 응답 (간소화)
+    # 4) 운동 루틴 템플릿 응답
     # ================================================================
     def _format_routine_response(
         self, character: str, analysis: str, routine_data: dict, health_info: dict
@@ -144,11 +173,16 @@ class ChatGenerator:
 {outro}"""
 
     # ================================================================
-    # 5) 메인 generate() - 간결화
+    # 5) 메인 generate() - 개선 버전
     # ================================================================
     def generate(self, user_id: str, message: str, character: str):
 
-        intent = classify_intent(message)
+        # ✅ 개선된 intent 분류 (시간/비교 컨텍스트 포함)
+        intent_result = classify_intent(message)
+        intent = intent_result["intent"]
+        time_context = intent_result.get("time_context")
+        use_similarity = intent_result.get("use_similarity", False)
+
         persona_prompt = get_persona_prompt(character)
 
         # ================================================================
@@ -156,8 +190,10 @@ class ChatGenerator:
         # ================================================================
         if intent == "health_query":
 
-            rag = query_health_data(message, user_id)
+            # ✅ 개선: intent_result 전달하여 적절한 데이터 조회
+            rag = query_health_data(message, user_id, intent_result=intent_result)
             similar = rag.get("similar_days", [])
+            mode = rag.get("mode", "latest")
 
             if not similar:
                 system = self._build_system_prompt(persona_prompt, "health_query")
@@ -166,12 +202,37 @@ class ChatGenerator:
 데이터 없음. 일반 조언을 2문장으로."""
                 return self._call_openai(system, user_prompt, max_tokens=200)
 
-            top_raw = similar[0]["raw"]
-            health_context = build_health_context_for_llm(top_raw)
+            # 데이터 컨텍스트 생성
+            data_context = self._format_data_context(rag, message)
 
-            system = self._build_system_prompt(persona_prompt, "health_query")
-            user_prompt = f"""질문: {message}
+            # 비교/패턴 모드면 다른 프롬프트
+            if use_similarity and len(similar) > 1:
+                system = self._build_system_prompt(persona_prompt, "comparison")
+                user_prompt = f"""질문: {message}
 
+{data_context}
+
+**여러 날짜 데이터를 비교하여 2-3문장으로 핵심만 답변하세요.**"""
+            else:
+                # 단일 데이터 (최신 or 특정 날짜)
+                top_raw = similar[0]["raw"]
+                health_context = build_health_context_for_llm(top_raw)
+                date_info = similar[0].get("date", "")
+
+                system = self._build_system_prompt(persona_prompt, "health_query")
+
+                # 시간 표현이 있었으면 날짜 명시
+                if time_context:
+                    user_prompt = f"""질문: {message}
+
+[{date_info} 데이터]
+{health_context}
+
+**2-3문장으로 핵심만 답변하세요.**"""
+                else:
+                    user_prompt = f"""질문: {message}
+
+[최신 데이터: {date_info}]
 {health_context}
 
 **2-3문장으로 핵심만 답변하세요.**"""
@@ -183,7 +244,16 @@ class ChatGenerator:
         # ================================================================
         if intent == "routine_request":
 
-            rag = query_health_data("routine", user_id)
+            # ✅ 루틴 요청은 항상 최신 데이터 사용
+            rag = query_health_data(
+                message,
+                user_id,
+                intent_result={
+                    "intent": "routine_request",
+                    "time_context": None,
+                    "use_similarity": False,
+                },
+            )
             similar = rag.get("similar_days", [])
 
             if not similar:
@@ -216,7 +286,7 @@ class ChatGenerator:
             )
 
         # ================================================================
-        # 3) 일반 대화 (더 간결하게)
+        # 3) 일반 대화
         # ================================================================
         system = self._build_system_prompt(persona_prompt, "general")
         user_prompt = f"""메시지: {message}

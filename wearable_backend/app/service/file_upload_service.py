@@ -1,4 +1,6 @@
 import os, shutil, tempfile, uuid
+from pathlib import Path
+from datetime import datetime
 from fastapi import UploadFile, HTTPException
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +16,18 @@ from app.core.llm_analysis import run_llm_analysis
 # 비동기 처리용 Executor
 executor = ThreadPoolExecutor(max_workers=4)
 
+# ============================================================
+# ZIP 저장 경로 설정
+# ============================================================
+BASE_DIR = Path(__file__).resolve().parent.parent.parent  # backend/
+ZIP_DATA_DIR = BASE_DIR / "zip_data"
+UPLOADS_DIR = ZIP_DATA_DIR / "uploads"
+EXTRACTED_DIR = ZIP_DATA_DIR / "extracted"
+
+# 디렉토리 생성
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+EXTRACTED_DIR.mkdir(parents=True, exist_ok=True)
+
 
 class FileUploadService:
     """
@@ -23,6 +37,7 @@ class FileUploadService:
     1. 날짜 정보 제대로 전달 (date_int 활용)
     2. 플랫폼 정보 자동 감지 (Apple/Samsung)
     3. VectorDB에 정확한 날짜 저장
+    4. ZIP 파일 프로젝트 폴더에 영구 저장
     """
 
     @staticmethod
@@ -83,7 +98,13 @@ class FileUploadService:
     ):
         user_id = self.get_or_create_user_id(user_id)
 
-        temp_dir = tempfile.mkdtemp()
+        # 사용자별 타임스탬프 디렉토리
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        user_short = user_id.replace("@", "_").replace(".", "_")
+
+        temp_dir = str(EXTRACTED_DIR / f"{user_short}_{timestamp}")
+        os.makedirs(temp_dir, exist_ok=True)
+
         temp_path = os.path.join(temp_dir, file.filename)
 
         try:
@@ -92,6 +113,14 @@ class FileUploadService:
             # 1️⃣ 파일 저장
             with open(temp_path, "wb") as buffer:
                 buffer.write(await file.read())
+
+            # ============================================================
+            # 📌 수정: ZIP/DB 모두 uploads/ 폴더에 원본 저장
+            # ============================================================
+            original_save_name = f"{user_short}_{timestamp}_{file.filename}"
+            original_save_path = UPLOADS_DIR / original_save_name
+            shutil.copy2(temp_path, original_save_path)
+            print(f"[INFO] 원본 파일 저장: {original_save_path}")
 
             # 2️⃣ ZIP 또는 DB 판별
             if file.filename.lower().endswith(".zip"):
@@ -138,15 +167,13 @@ class FileUploadService:
 
             # 6️⃣ 최신 1일치 summary (분석용)
             print("[INFO] 최신 데이터 전처리 중...")
-            # ✅ 개선: 날짜와 플랫폼 정보 전달
             latest_summary = await self.run_blocking(
                 preprocess_health_json, latest_raw, latest_date, platform
             )
 
-            # 7️⃣ 전체 날짜 summary → Vector DB 배치 저장 (핵심 개선!)
+            # 7️⃣ 전체 날짜 summary → Vector DB 배치 저장
             print(f"[INFO] VectorDB에 {total_days}일치 데이터 배치 저장 중...")
 
-            # ✅ 개선: 모든 날짜의 summary 생성 (날짜 정보 포함!)
             all_summaries = []
             for date_int, raw in raw_by_day.items():
                 daily_summary = await self.run_blocking(
@@ -154,13 +181,10 @@ class FileUploadService:
                     raw,
                     date_int,
                     platform,
-                    #                             ^^^^^^^^  ^^^^^^^^
-                    #                             날짜!     플랫폼!
                 )
                 all_summaries.append(daily_summary)
 
-            # ✅ 개선: 배치로 한 번에 저장 (source + platform)
-            source = f"zip_{platform}"  # "zip_apple" or "zip_samsung"
+            source = f"zip_{platform}"
             await self.run_blocking(
                 save_daily_summaries_batch, all_summaries, user_id, source
             )
@@ -181,15 +205,32 @@ class FileUploadService:
 
             print("[SUCCESS] 분석 완료")
 
+            # ============================================================
+            # 📌 수정: 저장 경로 정보 로그
+            # ============================================================
+            print(f"\n{'='*70}")
+            print(f"📦 파일 저장 정보:")
+            print(f"  • 파일 타입: {file.filename.split('.')[-1].upper()}")
+            print(f"  • 원본 파일: {original_save_path}")
+            print(f"  • 압축 해제: {temp_dir}")
+            print(f"  • 플랫폼: {platform}")
+            print(f"  • 날짜 범위: {dates[0]} ~ {dates[-1]}")
+            print(f"{'='*70}\n")
+
             return {
                 "message": "ZIP/DB 업로드 및 분석 성공",
                 "user_id": user_id,
                 "total_days_saved": total_days,
                 "date_range": f"{dates[0]} ~ {dates[-1]}" if dates else "",
                 "latest_date": latest_date,
-                "platform": platform,  # ✅ 플랫폼 정보 반환
+                "platform": platform,
                 "summary": latest_summary,
                 "llm_result": llm_result,
+                "file_info": {
+                    "file_type": file.filename.split(".")[-1],
+                    "original_path": str(original_save_path),
+                    "extract_dir": temp_dir,
+                },
             }
 
         except HTTPException:
@@ -202,8 +243,38 @@ class FileUploadService:
             raise HTTPException(500, f"ZIP/DB 처리 중 오류 발생: {str(e)}")
 
         finally:
-            # 9️⃣ 임시 디렉토리 정리
+            # 9️⃣ 이전 데이터 정리 + 현재 데이터 보존
             try:
-                shutil.rmtree(temp_dir)
-            except Exception:
-                pass
+                # 1. 현재 사용자의 모든 추출 디렉토리 찾기
+                user_pattern = f"{user_short}_*"
+                user_dirs = list(EXTRACTED_DIR.glob(user_pattern))
+
+                # 2. 현재 디렉토리 제외
+                current_dir = Path(temp_dir)
+                old_dirs = [d for d in user_dirs if d != current_dir]
+
+                # 3. 이전 추출 디렉토리 삭제
+                for old_dir in old_dirs:
+                    print(f"[INFO] 이전 데이터 삭제: {old_dir.name}")
+                    shutil.rmtree(old_dir)
+
+                # ============================================================
+                # 📌 수정: 모든 파일 타입에 대해 이전 원본 삭제
+                # ============================================================
+                # 4. 같은 유저의 이전 원본 파일 삭제 (ZIP/DB 모두)
+                file_pattern = f"{user_short}_*.*"  # 모든 확장자
+                old_files = list(UPLOADS_DIR.glob(file_pattern))
+
+                # 현재 파일 제외
+                current_file = UPLOADS_DIR / original_save_name
+                old_files = [f for f in old_files if f != current_file]
+
+                for old_file in old_files:
+                    print(f"[INFO] 이전 원본 파일 삭제: {old_file.name}")
+                    old_file.unlink()
+
+                print(f"[INFO] 최신 데이터 보존: {temp_dir}")
+                print(f"[INFO] 최신 원본 보존: {original_save_path}")
+
+            except Exception as e:
+                print(f"[WARN] 이전 데이터 정리 중 오류 (무시): {str(e)}")

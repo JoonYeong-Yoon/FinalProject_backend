@@ -229,6 +229,42 @@ run_llm_analysis(summary, user_id, difficulty_level, duration_min)
 
 ---
 
+## zip 파일 데이터 확인 방법
+
+cd backend
+
+# 전체 데이터 요약
+
+python inspect_data.py --all
+
+# 특정 사용자 데이터
+
+python inspect_data.py --user 11@aa.com
+
+# 특정 사용자 상세 정보
+
+python inspect_data.py --user 11@aa.com --detail
+
+# 특정 사용자 모든 필드
+
+python inspect_data.py --user 11@aa.com --detail --all-fields
+
+# 특정 날짜 조회
+
+python inspect_data.py --date 2025-12-17 --user 11@aa.com
+
+# 중복 데이터 확인
+
+python inspect_data.py --duplicates
+
+# 날짜 범위 확인
+
+python inspect_data.py --dates
+
+# ChromaDB 위치 확인
+
+python inspect_data.py --location
+
 ## 🗄️ VectorDB 데이터 확인 방법
 
 ### 1. API 엔드포인트 사용

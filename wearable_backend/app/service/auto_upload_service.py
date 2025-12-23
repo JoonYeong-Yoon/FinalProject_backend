@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from concurrent.futures import ThreadPoolExecutor
 
 from app.utils.preprocess import preprocess_health_json
+from app.utils.platform_detection import detect_platform
 from app.core.vector_store import save_daily_summary
 from app.core.llm_analysis import run_llm_analysis
 
@@ -24,7 +25,7 @@ class AutoUploadService:
     ✅ 개선 사항:
     1. 날짜별 개별 처리 (ZIP과 동일한 방식)
     2. 각 날짜마다 VectorDB에 별도 저장
-    3. platform='samsung' 자동 설정
+    3. platform 자동 감지 (samsung/apple)
     """
 
     @staticmethod
@@ -43,11 +44,15 @@ class AutoUploadService:
     ):
         user_id = self.get_or_create_user_id(user_id)
 
+        # ✅ 플랫폼 자동 감지
+        platform = detect_platform(json_data)
+
         print(f"\n{'='*60}")
         print(f"📥 API 데이터 처리 시작: {date}")
         print(f"{'='*60}")
         print(f"User ID: {user_id}")
         print(f"Date: {date}")
+        print(f"Platform: {platform}")  # ✅ 감지된 플랫폼 출력
         print(f"Difficulty: {difficulty}, Duration: {duration}분")
         print(f"Raw data keys: {list(json_data.keys())}")
 
@@ -62,12 +67,13 @@ class AutoUploadService:
             latest_summary = await run_blocking(
                 preprocess_health_json,
                 json_data,
-                date_int,  # ✅ 날짜 전달
-                "samsung",  # ✅ 플랫폼 자동 설정
+                date_int,
+                platform,  # ✅ 자동 감지된 플랫폼 사용
             )
 
             print(f"✅ Summary 생성 완료")
             print(f"   created_at: {latest_summary.get('created_at')}")
+            print(f"   platform: {platform}")
             print(f"   date: {date}")
 
         except Exception as e:
@@ -82,7 +88,6 @@ class AutoUploadService:
             print(f"\n[STEP 2] Vector DB 저장 중...")
 
             # ✅ 플랫폼별 source 구분
-            platform = latest_summary.get("platform", "unknown")
             source = f"api_{platform}"  # "api_samsung" or "api_apple"
 
             print(f"   플랫폼: {platform}")
@@ -100,9 +105,7 @@ class AutoUploadService:
             traceback.print_exc()
             raise HTTPException(500, f"Vector DB 저장 실패: {str(e)}")
 
-        # 3️⃣ LLM 분석 (최신 날짜에만 실행)
-        # ✅ 최신 날짜 데이터인 경우에만 LLM 분석 실행
-        # 앱에서 여러 날짜를 전송할 때 마지막(최신) 데이터만 분석
+        # 3️⃣ LLM 분석
         try:
             print(f"\n[STEP 3] LLM 분석 시작...")
             print(f"   summary keys: {list(latest_summary.keys())}")
@@ -141,13 +144,14 @@ class AutoUploadService:
 
         # 4️⃣ 최종 응답
         print(f"\n{'='*60}")
-        print(f"✅ {date} 데이터 처리 완료")
+        print(f"✅ {date} 데이터 처리 완료 (플랫폼: {platform})")
         print(f"{'='*60}\n")
 
         return {
             "success": True,
             "user_id": user_id,
             "date": date,
+            "platform": platform,  # ✅ 응답에 플랫폼 포함
             "summary": latest_summary,
             "analysis": llm_result.get("analysis", ""),
             "ai_recommended_routine": llm_result.get("ai_recommended_routine", {}),

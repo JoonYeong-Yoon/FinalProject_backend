@@ -1,7 +1,8 @@
 """
-Fixed Responses - 고정형 질문 응답 생성기 (품질 개선)
-속도 유지: 각 질문당 LLM 1회 호출
-품질 향상: 규칙 기반 해석 + 상세 프롬프트
+Fixed Responses - 고정형 질문 응답 생성기 (개선 버전)
+- 최신 데이터 우선 조회
+- 같은 날짜 중복 제거
+- 속도 유지: 각 질문당 LLM 1회 호출
 """
 
 import json
@@ -16,7 +17,7 @@ from app.config import (
     DEFAULT_DURATION,
 )
 from app.core.chatbot_engine.persona import get_persona_prompt
-from app.core.vector_store import search_similar_summaries
+from app.core.vector_store import get_recent_summaries, search_similar_summaries
 from app.core.llm_analysis import run_llm_analysis
 from app.core.health_interpreter import (
     interpret_health_data,
@@ -32,23 +33,39 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_fixed_response(user_id: str, question_type: str, character: str):
     """
-    고정형 질문을 처리하는 엔진 (품질 개선 버전)
+    고정형 질문을 처리하는 엔진 (개선 버전)
+
+    개선 사항:
+    - get_recent_summaries() 사용으로 최신 데이터 우선 조회
+    - 같은 날짜 중복 자동 제거
     """
+
+    # ✅ 디버그 로그
+    print(f"\n{'='*60}")
+    print(f"🤖 고정형 챗봇 요청")
+    print(f"{'='*60}")
+    print(f"   user_id: {user_id}")
+    print(f"   question_type: {question_type}")
+    print(f"   character: {character}")
 
     persona = get_persona_prompt(character)
 
-    # VectorDB에서 최근 summary 검색
-    vector_result = search_similar_summaries(
-        query_dict={"query": "health summary"}, user_id=user_id, top_k=5
-    )
+    # ✅ 개선: 최신 날짜순으로 데이터 조회 (중복 제거 포함)
+    print(f"\n[DEBUG] get_recent_summaries 호출 중...")
+    summaries = get_recent_summaries(user_id, limit=7)
+    print(f"[DEBUG] 조회 결과: {len(summaries)}개 데이터")
 
-    summaries = vector_result.get("similar_days", []) or []
+    if summaries:
+        for i, s in enumerate(summaries[:3]):
+            print(
+                f"   [{i+1}] {s.get('date')} | source: {s.get('source')} | score: {s.get('health_score')}"
+            )
 
     # summary 없을 경우 fallback
     if not summaries:
         return _get_no_data_response(character)
 
-    # 최근 summary 데이터 추출
+    # 최근 summary 데이터 추출 (가장 최신)
     recent = summaries[0]
     recent_raw = recent.get("raw", {})
     recent_summary_text = recent.get("summary_text", "")
@@ -157,12 +174,21 @@ def _generate_weekly_report(
     # 건강 점수
     score_info = health_info.get("health_score", {})
 
+    # 데이터 기간 표시
+    if summaries:
+        date_range = f"{summaries[-1].get('date', '')} ~ {summaries[0].get('date', '')}"
+    else:
+        date_range = "데이터 없음"
+
     prompt = f"""
 {persona}
 
 당신은 사용자의 이번 주 건강 리포트를 작성해야 합니다.
 
 ## 사용자 건강 데이터 요약
+
+### 데이터 기간
+{date_range}
 
 ### 최근 측정 데이터
 {health_context}
@@ -365,8 +391,8 @@ def _generate_sleep_report(persona, character, raw, summaries, health_info):
         sleep_data.append(
             {
                 "date": day.get("date", ""),
-                "sleep_hr": day_raw.get("sleep_hr", 0),
-                "sleep_min": day_raw.get("sleep_min", 0),
+                "sleep_hr": round(day_raw.get("sleep_hr", 0), 1),
+                "sleep_min": int(day_raw.get("sleep_min", 0)),
             }
         )
 
@@ -491,7 +517,7 @@ def _generate_health_score_report(persona, character, raw, health_info):
 • 체형: {bmi_info.get('category', '데이터 없음')} - {bmi_info.get('message', '')}
 
 ## 상세 데이터
-• 수면: {raw.get('sleep_hr', 0)}시간
+• 수면: {raw.get('sleep_hr', 0):.1f}시간
 • 걸음수: {raw.get('steps', 0):,}보
 • 심박수: {raw.get('heart_rate', 0)}bpm / 휴식기 {raw.get('resting_heart_rate', 0)}bpm
 • BMI: {raw.get('bmi', 0):.1f}
