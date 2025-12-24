@@ -12,346 +12,183 @@
 - 입력 catalog는 영어 기반(ex['name']는 영어 key)이어야 함.
 - router에서 이미 한국어->영어 변환을 수행했어야 함. 방어적으로 normalize 수행.
 """
-# app/services/routine_generator/builder.py
-from typing import List, Dict, Any
 import random
-from .feature_builder import estimate_calories_for_exercise, compute_routine_ratios
-from .reps_predictor import predict_reps_for_exercise
-from .scorer import score_routine
-from core.db import get_db_connection
-from services.routine_generator.mappings import (
-    EXERCISE_KO_TO_EN, EXERCISE_EN_TO_KO, GOAL_KO_TO_EN, GOAL_EN_TO_KO,
-    INJURY_KO_TO_EN, INJURY_EN_TO_KO, CANCEL_KO_TO_EN, CANCEL_EN_TO_KO,
-    STATUS_KO_TO_EN, STATUS_EN_TO_KO, 
-    CATEGORY1_KO_TO_EN, CATEGORY1_EN_TO_KO,
-    map_ko_to_en, map_en_to_ko)
-from .mappings import INJURY_EXERCISE_MAP
+from typing import List, Dict, Any
 
-ALLOWED_EXERCISES_EN = set(EXERCISE_EN_TO_KO.keys())  # 17개 영어 key
+from services.routine_generator.reps_predictor import predict_reps_for_exercise
+from services.routine_generator.scorer import score_routine
+from services.routine_generator.mappings import INJURY_EXERCISE_MAP
 
-def _to_float(v):
-    from decimal import Decimal
-    if v is None:
-        return None
-    if isinstance(v, Decimal):
-        return float(v)
-    try:
-        return float(v)
-    except:
-        return None
+print("🚨 builder.py LOADED:", __file__)
 
-def normalize_catalog(catalog: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """카탈로그 항목이 한국어 이름을 갖고 있으면 영어로 변환"""
-    out = []
-    for c in catalog:
-        c = dict(c)  # 복사
-        # name이 한국어라면 변환 (방어)
-        if c.get('name') in EXERCISE_KO_TO_EN:
-            c['name'] = EXERCISE_KO_TO_EN[c['name']]
-        # id, difficulty, MET 등 타입 정리
-        c['difficulty'] = int(c.get('difficulty') or 3)
-        c['MET'] = _to_float(c.get('MET') or c.get('met') or 3.0)
-        # ensure category_1 is EN
-        cat1 = c.get('category_1')
-        if cat1:
-            c['category_1'] = (cat1 or '').upper()
-        out.append(c)
-    # 필터: 허용된 운동 목록(프로젝트 17종)
-    out = [c for c in out if c['name'] in ALLOWED_EXERCISES_EN]
-    return out
+MIN_EXERCISES = 2
+MAX_EXERCISES = 6
+MAX_SETS_PER_EXERCISE = 50  # 🔥 요구사항 반영
 
-def build_routine_from_exercises(user_info: dict, exercises: List[Dict[str, Any]], time_min: int):
-    """
-    exercises: 이미 선택된 리스트 (각 ex는 영어 기반)
-    반환: routine dict (exercises with set/reps/etc + totals + score)
-    """
-    ex_items = []
-    total_cal = 0.0
+TARGET_TIME_RATIOS = {
+    "time_based": (0.95, 1.00),
+    "efficiency_based": (0.90, 1.00),
+    "balance_based": (0.90, 1.00),
+}
+
+# ======================================================
+# 시간 계산
+# ======================================================
+
+def calc_exercise_time_sec(item: Dict[str, Any]) -> int:
+    sets = item["sets"]
+    duration = item["duration_sec"]
+    rest = item["rest_sec"]
+    return int((duration * sets) + (rest * max(sets - 1, 0)))
+
+def calc_total_time_sec(items: List[Dict[str, Any]]) -> int:
+    return sum(calc_exercise_time_sec(it) for it in items)
+
+def determine_exercise_count(time_min: int) -> int:
+    n = round(time_min / 10)
+    return max(MIN_EXERCISES, min(MAX_EXERCISES, n))
+
+# ======================================================
+# 루틴 빌드
+# ======================================================
+
+def build_routine_from_exercises(
+    user_info: dict,
+    exercises: List[Dict[str, Any]],
+    time_min: int,
+    strategy: str,
+) -> Dict[str, Any]:
+
+    ex_items: List[Dict[str, Any]] = []
+
+    # 1️⃣ 모델 예측
     for ex in exercises:
-        ex = dict(ex)
-        # 예측기 호출 (세트/반복/시간/휴식)
         pred = predict_reps_for_exercise(user_info, ex)
+        # print("pred",pred)
         sets = int(pred.get("set_count", 3))
-        reps = int(pred.get("reps", 10))
+        reps = int(pred.get("reps", 20))
         rest_sec = int(pred.get("rest_sec", 60))
-        duration_sec = int(pred.get("duration_sec") or max(10, int(reps * 2.5 * sets)))
-        weight = user_info.get("weight_kg") or 70.0
-        est_cal = estimate_calories_for_exercise(
-            float(ex.get("MET") or 3.0),
-            weight,
-            duration_sec / 60.0
-        )
-        item = {
-            "exercise_id": ex.get("id"),
-            "name": ex.get("name"),  # 영어 key
-            "sets": sets,
+        duration_sec = int(pred.get("duration_sec", max(30, reps * 3)))
+
+        ex_items.append({
+            "exercise_id": ex["id"],
+            "name": ex["name"],
+            "sets": max(1, sets),
             "reps": reps,
             "rest_sec": rest_sec,
             "duration_sec": duration_sec,
             "exercise_meta": ex,
-            "est_calories": round(est_cal, 1)
-        }
-        ex_items.append(item)
-        total_cal += est_cal
+            "est_calories": 0.0,  # 🔥 나중에 채움
+        })
 
-    ratios = compute_routine_ratios(ex_items)
-    estimated_seconds = sum(it["duration_sec"] + it["rest_sec"] * it["sets"] for it in ex_items)
-    estimated_minutes = round(estimated_seconds / 60.0, 1)
+    # 2️⃣ 목표 시간
+    min_ratio, max_ratio = TARGET_TIME_RATIOS[strategy]
+    target_min_sec = int(time_min * 60 * min_ratio)
+    target_max_sec = int(time_min * 60 * max_ratio)
 
-    # 시간 초과 시 세트 축소(간단 폴백)
-    if estimated_minutes > time_min:
-        for it in ex_items:
-            while estimated_minutes > time_min and it["sets"] > 1:
-                it["sets"] -= 1
-                it["duration_sec"] = max(10, int(it["duration_sec"] * 0.8))
-                estimated_seconds = sum(i["duration_sec"] + i["rest_sec"] * i["sets"] for i in ex_items)
-                estimated_minutes = round(estimated_seconds / 60.0, 1)
+    total_sec = calc_total_time_sec(ex_items)
 
+    # 3️⃣ 시간 충족될 때까지 세트 증가
+    idx = 0
+    while total_sec < target_min_sec:
+        item = ex_items[idx % len(ex_items)]
+        if item["sets"] < MAX_SETS_PER_EXERCISE:
+            item["sets"] += 1
+        idx += 1
+        total_sec = calc_total_time_sec(ex_items)
+
+    total_time_min = round(total_sec / 60.0, 1)
+
+    # 4️⃣ 칼로리 계산 (exercise + total)
+    weight_kg = float(user_info.get("weight_kg") or 70.0)
+    total_kcal = 0.0
+
+    for it in ex_items:
+        met = float(it["exercise_meta"].get("MET") or 3.5)
+        active_sec = it["sets"] * it["duration_sec"]
+        kcal = met * weight_kg * (active_sec / 3600.0)
+        it["est_calories"] = round(kcal, 2)
+        total_kcal += kcal
+
+    total_calories = round(total_kcal, 2)
+
+    # 5️⃣ 점수
     summary = {
+        "strategy": strategy,
         "time_available_minutes": time_min,
+        "estimated_time_min": total_time_min,
         "total_sets": sum(it["sets"] for it in ex_items),
         "total_exercises": len(ex_items),
-        "metabolic_ratio": ratios["metabolic_ratio"],
-        "upper_ratio": ratios["upper_ratio"],
-        "lower_ratio": ratios["lower_ratio"],
+        "total_calories": total_calories,
+        "avg_met": sum(float(it["exercise_meta"].get("MET", 0)) for it in ex_items) / max(len(ex_items), 1),
+        "category_counts": {...},
     }
+
     score = score_routine(user_info, summary)
+
     return {
+        "strategy": strategy,
         "exercises": ex_items,
-        "total_time_min": estimated_minutes,
-        "total_calories": round(total_cal, 1),
+        "total_time_min": total_time_min,
+        "total_calories": total_calories,
         "score": score,
-        "summary": summary
     }
 
-def generate_three_strategy_routines(user_info, catalog, time_min):
-    """
-    세 전략(time_based / efficiency_based / balance_based)으로
-    각각 루틴을 생성하여 점수순으로 반환
-    """
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
-    try:
-        # -------------------------------------------------
-        # 0. catalog 정규화 (가장 먼저)
-        # -------------------------------------------------
-        catalog = normalize_catalog(catalog)
-        if not catalog:
-            return []
+# ======================================================
+# 3가지 전략
+# ======================================================
 
-        # -------------------------------------------------
-        # 1. 최근 취소 컨텍스트 조회
-        # -------------------------------------------------
-        cancel_reason, injury_area = get_recent_cancel_context(
-            cur, user_info["user_id"]
+def generate_three_strategy_routines(
+    user_info: dict,
+    catalog: List[Dict[str, Any]],
+    time_min: int,
+) -> List[Dict[str, Any]]:
+
+    n_ex = determine_exercise_count(time_min)
+
+    exclude_ids = set()
+    if user_info.get("exclude_injury_area"):
+        exclude_ids = INJURY_EXERCISE_MAP.get(user_info["exclude_injury_area"], set())
+
+    filtered = [ex for ex in catalog if ex["id"] not in exclude_ids]
+    if len(filtered) < n_ex:
+        filtered = catalog[:n_ex]
+
+    # time_based
+    time_selected = sorted(filtered, key=lambda x: x.get("MET", 4.5), reverse=True)[:n_ex]
+    time_routine = build_routine_from_exercises(user_info, time_selected, time_min, "time_based")
+    # print("time_routine", time_routine)
+    # efficiency_based
+    candidates = []
+    for _ in range(30):
+        sample = random.sample(filtered, min(n_ex, len(filtered)))
+        candidates.append(
+            build_routine_from_exercises(user_info, sample, time_min, "efficiency_based")
         )
+    efficiency_routine = max(candidates, key=lambda x: x["score"])
 
-        # INTERRUPTED → 완전 무시
-        if cancel_reason == "TOO_HARD":
-            user_info["fitness_level"] = max(
-                1, int(user_info.get("fitness_level") or 1) - 1
-            )
-
-        elif cancel_reason == "TOO_LONG":
-            user_info["time_adjust_factor"] = 0.85
-
-        elif cancel_reason == "INJURY" and injury_area:
-            user_info["exclude_injury_area"] = injury_area
-
-        # -------------------------------------------------
-        # 2. 시간 보정 (TOO_LONG)
-        # -------------------------------------------------
-        time_min = int(time_min * user_info.get("time_adjust_factor", 1.0))
-
-        # -------------------------------------------------
-        # 3. INJURY 운동 제외
-        # -------------------------------------------------
-        exclude_ids = set()
-        if user_info.get("exclude_injury_area"):
-            exclude_ids = INJURY_EXERCISE_MAP.get(
-                user_info["exclude_injury_area"], set()
-            )
-
-        catalog = [
-            ex for ex in catalog
-            if ex.get("id") not in exclude_ids
-        ]
-
-        if not catalog:
-            return []
-
-        # -------------------------------------------------
-        # 4. 난이도 필터
-        # -------------------------------------------------
-        fl = int(user_info.get("fitness_level") or 1)
-        max_diff = 3 if fl == 1 else (4 if fl == 2 else 5)
-
-        catalog = [
-            c for c in catalog
-            if int(c.get("difficulty") or 3) <= max_diff
-        ]
-
-        if not catalog:
-            return []
-
-        # -------------------------------------------------
-        # 5. 공통 파라미터
-        # -------------------------------------------------
-        n_ex = 3 if time_min <= 20 else (4 if time_min <= 35 else 5)
-
-        # -------------------------------------------------
-        # 6. 전략 1) 시간 기반 (MET 우선)
-        # -------------------------------------------------
-        def time_score(ex):
-            return float(ex.get("MET") or 1.0) - 0.1 * int(ex.get("difficulty") or 3)
-
-        time_sorted = sorted(catalog, key=time_score, reverse=True)
-        time_selected = time_sorted[:n_ex]
-
-        time_routine = build_routine_from_exercises(
-            user_info, time_selected, time_min
-        )
-        time_routine["strategy"] = "time_based"
-
-        # -------------------------------------------------
-        # 7. 전략 2) 효율 기반 (랜덤 샘플 + scorer)
-        # -------------------------------------------------
-        sampled_candidates = []
-        random.seed(hash(user_info.get("user_id") or "seed"))
-
-        for _ in range(40):
-            k = min(n_ex, max(3, len(catalog)))
-            try:
-                candidate = random.sample(catalog, k=k)
-            except ValueError:
-                candidate = catalog[:k]
-
-            res = build_routine_from_exercises(
-                user_info, candidate, time_min
-            )
-            sampled_candidates.append(res)
-
-        efficiency_routine = max(
-            sampled_candidates, key=lambda x: x["score"]
-        )
-        efficiency_routine["strategy"] = "efficiency_based"
-
-        # -------------------------------------------------
-        # 8. 전략 3) 균형 기반 (상/하/코어)
-        # -------------------------------------------------
-        upper_candidates = [
-            c for c in catalog
-            if (c.get("category_1") or "").upper() == "UPPER_BODY"
-        ]
-        lower_candidates = [
-            c for c in catalog
-            if (c.get("category_1") or "").upper() == "LOWER_BODY"
-        ]
-        core_candidates = [
-            c for c in catalog
-            if (c.get("category_1") or "").upper() in ("CORE", "FULL_BODY")
-        ]
-
-        chosen = []
-        if upper_candidates:
-            chosen.append(random.choice(upper_candidates))
-        if lower_candidates:
-            chosen.append(random.choice(lower_candidates))
-        if core_candidates:
-            chosen.append(random.choice(core_candidates))
-
-        remaining = [c for c in catalog if c not in chosen]
-        idx = 0
-        while len(chosen) < n_ex and idx < len(remaining):
-            chosen.append(remaining[idx])
-            idx += 1
-
-        balance_routine = build_routine_from_exercises(
-            user_info, chosen, time_min
-        )
-        balance_routine["strategy"] = "balance_based"
-
-        # -------------------------------------------------
-        # 9. 점수순 정렬 후 반환
-        # -------------------------------------------------
-        routines = [time_routine, efficiency_routine, balance_routine]
-        routines_sorted = sorted(
-            routines, key=lambda x: x["score"], reverse=True
-        )
-
-        return routines_sorted
-
-    finally:
-        conn.close()
-
-def get_recent_cancel_context(cur, user_id: str):
-    cur.execute("""
-        SELECT cancellation_reason, injury_area
-        FROM activity_logs
-        WHERE user_id = %s
-          AND status = 'CANCELLED'
-        ORDER BY ended_at DESC
-        LIMIT 1
-    """, (user_id,))
-    row = cur.fetchone()
-    return row if row else (None, None)
-
-    catalog = normalize_catalog(catalog)
-    if not catalog:
-        return []
-
-    # 난이도 필터
-    fl = int(user_info.get("fitness_level") or 1)
-    max_diff = 3 if fl == 1 else (4 if fl == 2 else 5)
-    catalog = [c for c in catalog if (c.get("difficulty") or 3) <= max_diff]
-
-    # 1) 시간 기반 (MET 우대)
-    def time_score(ex):
-        return float(ex.get("MET") or 1.0) - 0.1 * (ex.get("difficulty") or 3)
-    n_ex = 3 if time_min <= 20 else (4 if time_min <= 35 else 5)
-    time_sorted = sorted(catalog, key=time_score, reverse=True)
-    time_selected = time_sorted[:n_ex]
-    time_routine = build_routine_from_exercises(user_info, time_selected, time_min)
-    time_routine["strategy"] = "time_based"
-
-    # 2) 효율 기반 (샘플링 + scorer 최대화)
-    sampled_candidates = []
-    random.seed(hash(user_info.get("user_id") or "seed"))
-    for _ in range(40):
-        k = min(n_ex, max(3, len(catalog)))
-        try:
-            candidate = random.sample(catalog, k=k)
-        except ValueError:
-            candidate = catalog[:k]
-        res = build_routine_from_exercises(user_info, candidate, time_min)
-        sampled_candidates.append(res)
-    efficiency_routine = max(sampled_candidates, key=lambda x: x["score"])
-    efficiency_routine["strategy"] = "efficiency_based"
-
-    # 3) 균형 기반 (상/하/코어 포함 보장)
-    upper_candidates = [c for c in catalog if (c.get("category_1") or '').upper() == "UPPER_BODY"]
-    lower_candidates = [c for c in catalog if (c.get("category_1") or '').upper() == "LOWER_BODY"]
-    core_candidates = [c for c in catalog if (c.get("category_1") or '').upper() in ("CORE", "FULL_BODY")]
+    # balance_based
+    upper = [c for c in filtered if c.get("category_1") == "UPPER_BODY"]
+    lower = [c for c in filtered if c.get("category_1") == "LOWER_BODY"]
+    core = [c for c in filtered if c.get("category_1") in ("CORE", "FULL_BODY")]
 
     chosen = []
-    if upper_candidates:
-        chosen.append(random.choice(upper_candidates))
-    if lower_candidates:
-        chosen.append(random.choice(lower_candidates))
-    if core_candidates:
-        chosen.append(random.choice(core_candidates))
+    if upper: chosen.append(random.choice(upper))
+    if lower: chosen.append(random.choice(lower))
+    if core: chosen.append(random.choice(core))
 
-    remaining = [c for c in catalog if c not in chosen]
-    idx = 0
-    while len(chosen) < n_ex and idx < len(remaining):
-        chosen.append(remaining[idx])
-        idx += 1
+    for c in filtered:
+        if len(chosen) >= n_ex:
+            break
+        if c not in chosen:
+            chosen.append(c)
 
-    balance_routine = build_routine_from_exercises(user_info, chosen, time_min)
-    balance_routine["strategy"] = "balance_based"
+    balance_routine = build_routine_from_exercises(user_info, chosen, time_min, "balance_based")
 
-    routines = [time_routine, efficiency_routine, balance_routine]
-    routines_sorted = sorted(routines, key=lambda x: x["score"], reverse=True)
-    return routines_sorted
+    return sorted(
+        [time_routine, efficiency_routine, balance_routine],
+        key=lambda x: x["score"],
+        reverse=True,
+    )
+
 

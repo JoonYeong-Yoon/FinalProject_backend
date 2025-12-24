@@ -85,7 +85,7 @@ def recommend_routine(req: RecommendReq, token: str = Depends(oauth2_scheme)):
             WHERE u.id = %s
         """, (user_id,))
         rec = cur.fetchone()
-
+        
         if not rec:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -140,10 +140,10 @@ def recommend_routine(req: RecommendReq, token: str = Depends(oauth2_scheme)):
         catalog = [dict(zip(cols, r)) for r in rows]
 
         # 5️⃣ AI 루틴 생성
+        # print("user_info, catalog, time_min",user_info, catalog, time_min)
         routines = generate_three_strategy_routines(
             user_info, catalog, time_min
         )
-
         # 6️⃣ 트랜잭션 시작 (원자성 보장)
         for r in routines:
             ai_routine_id = save_ai_routine(conn, user_info, r)
@@ -182,7 +182,6 @@ def recommend_routine(req: RecommendReq, token: str = Depends(oauth2_scheme)):
                 "score": float(r.get("score") or 0.0),
                 "exercises": ex_list,
             })
-
         return out
     
     except Exception as e:

@@ -42,17 +42,19 @@ def generate_exercise_intro_text(exercise: dict) -> str:
 # ===============================
 # 다음 세트 / 다음 운동 안내
 # ===============================
-def generate_next_text(exercise: Dict, set_number: int) -> str:
-    """
-    다음 세트 또는 다음 운동 시작 안내
-    """
-    exercise_name = exercise.get("name", "운동")
+def generate_next_text(exercise: dict, set_number: int) -> str:
+    name = exercise.get("name", "운동")
+    desc = exercise.get("description")
+    caution = exercise.get("caution")
+    text = f"{name}, {set_number}세트입니다. "
 
-    return (
-        f"{exercise_name} {set_number}세트입니다. "
-        "호흡을 유지하면서 진행해 주세요."
-    )
+    if desc:
+        text += f" {desc}. "
+    if caution:
+        text += f" {caution}. "
 
+#    text += "호흡을 유지하며 시작하세요."
+    return text
 
 # ===============================
 # 휴식 안내 (선택적)
@@ -90,3 +92,4 @@ def generate_finish_text(completion_ratio: float) -> str:
         "천천히 스트레칭으로 마무리 하면서 "
         "호흡을 정리하고 충분히 휴식해 주세요."
     )
+

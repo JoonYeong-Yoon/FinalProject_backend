@@ -1,5 +1,4 @@
 # app/services/routine_generator/feature_builder.py
-# app/services/routine_generator/feature_builder.py
 """
 피쳐/유틸: 칼로리 추정, BMI 계산, 루틴 비율 계산
 - 내부에서는 항상 영어 메타 정보(exercise_meta['category_1'])를 사용하도록 설계

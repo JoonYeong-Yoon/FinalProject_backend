@@ -40,18 +40,18 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/web/users/login")
 def start(
     req: StartReq,
     token: str = Depends(oauth2_scheme)):
-
     try:
         return start_coaching_session(
             # user_id=req.user_id,
             ai_routine_id=req.ai_routine_id, 
-            token = token 
+            token = token
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/next")
 def next_exercise(req: NextReq):
+    print("req.coaching_session_id",req.coaching_session_id)
     try:
         return next_step(req.coaching_session_id)
     except Exception as e:

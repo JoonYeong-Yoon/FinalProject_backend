@@ -6,7 +6,7 @@
 import uuid
 import asyncio
 from typing import Dict, Optional
-from jose import jwt
+from jose import jwt, JWTError
 
 from core.db import get_db_connection
 from services.coaching_text import (
@@ -43,30 +43,32 @@ def build_tts_payload(text: str) -> Dict[str, str]:
 # ===========================
 # START COACHING
 # ===========================
-def start_coaching_session(
-        # user_id: str, 
-        ai_routine_id,
-        token
-        ):
-
+def start_coaching_session(ai_routine_id: str, token:str):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    payload = jwt.decode(
+        token,
+        settings.SECRET_KEY,
+        algorithms=[settings.ALGORITHM]
+    )
+    user_id: str = payload.get("sub")
     try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
-        )
-        user_id: str = payload.get("sub")
-
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        # 루틴 아이템 확인
+        # 1️⃣ 첫 운동 + 운동 메타 정보 조회 (핵심 수정)
         cur.execute(
             """
-            SELECT exercise_id, set_count, reps, rest_sec, duration_sec
-            FROM ai_routine_items
-            WHERE ai_routine_id = %s
-            ORDER BY step_number
+            SELECT 
+                i.exercise_id,
+                i.set_count,
+                i.reps,
+                i.rest_sec,
+                i.duration_sec,
+                e.name,
+                e.description,
+                e.caution
+            FROM ai_routine_items i
+            JOIN exercise e ON i.exercise_id = e.id
+            WHERE i.ai_routine_id = %s
+            ORDER BY i.step_number
             LIMIT 1
             """,
             (ai_routine_id,),
@@ -75,9 +77,18 @@ def start_coaching_session(
         if not row:
             raise ValueError("ai_routine_items not found")
 
-        exercise_id, set_count, reps, rest_sec, duration_sec = row
+        (
+            exercise_id,
+            set_count,
+            reps,
+            rest_sec,
+            duration_sec,
+            name,
+            description,
+            caution,
+        ) = row
 
-        # 세션 생성
+        # 2️⃣ coaching_session 생성
         session_id = str(uuid.uuid4())
         cur.execute(
             """
@@ -89,30 +100,34 @@ def start_coaching_session(
             """,
             (session_id, user_id, ai_routine_id),
         )
-
         conn.commit()
 
+        # 3️⃣ TTS용 exercise_dict (화이트리스트!)
         exercise_dict = {
             "exercise_id": exercise_id,
+            "name": name,
             "sets": set_count,
             "reps": reps,
             "rest_sec": rest_sec,
             "duration_sec": duration_sec,
+            "description": description,
+            "caution": caution,
         }
 
+        # 4️⃣ 시작 TTS 생성 (운동명 + 설명 + 주의 + 1세트)
         text = generate_start_text(exercise_dict)
         tts = build_tts_payload(text)
-
+        print("coaching_session_id", session_id)
         return {
             "coaching_session_id": session_id,
             "current_step": 1,
             "exercise": exercise_dict,
             **tts,
+            "current_index":0
         }
 
     finally:
         conn.close()
-
 
 # ===========================
 # NEXT STEP
@@ -133,18 +148,37 @@ def next_step(coaching_session_id: str):
             WHERE id = %s
         """, (coaching_session_id,))
         row = cur.fetchone()
-
+        print("coaching_session_id",coaching_session_id)
         if not row:
             raise ValueError("Coaching session not found")
 
-        user_id, ai_routine_id, current_exercise_index, current_set, status = row
+        user_id, ai_routine_id, idx, current_set, status = row
+        # [A] 휴식 이후 다음 호출이면 다음 운동으로 이동
+        # (이전 호출에서 마지막 세트 종료 후 휴식 안내를 했던 경우)
+        # cur.execute("""
+        #     SELECT set_count
+        #     FROM ai_routine_items
+        #     WHERE ai_routine_id = %s
+        #     AND step_number = %s
+        # """, (ai_routine_id, idx + 1))
+        # sc_row = cur.fetchone()
+        # if sc_row and current_set > sc_row[0]:
+        #     print("초기화")
+        #     next_idx = idx + 1
+        #     cur.execute("""
+        #         UPDATE coaching_sessions
+        #         SET current_exercise_index = %s,
+        #             current_set = 1,
+        #             updated_at = NOW()
+        #         WHERE id = %s
+        #     """, (next_idx, coaching_session_id))
+        #     conn.commit()
+        #     current_set = 1
+        # if status != "RUNNING":
+        #     return {"status": status}
 
-        if status != "RUNNING":
-            return {"status": status}
-
-        # 2️⃣ 현재 운동 조회 (step_number는 1-based)
-        step_number = current_exercise_index + 1
-
+        # 2️⃣ 현재 운동 조회
+        step_number = idx + 1
         cur.execute("""
             SELECT
                 i.exercise_id,
@@ -152,12 +186,13 @@ def next_step(coaching_session_id: str):
                 i.reps,
                 i.rest_sec,
                 i.duration_sec,
+                e.name,
                 e.description,
                 e.caution
             FROM ai_routine_items i
             JOIN exercise e ON i.exercise_id = e.id
             WHERE i.ai_routine_id = %s
-            AND i.step_number = %s
+              AND i.step_number = %s
         """, (ai_routine_id, step_number))
 
         exercise = cur.fetchone()
@@ -175,15 +210,22 @@ def next_step(coaching_session_id: str):
             tts = build_tts_payload(text)
 
             conn.commit()
-            return {
-                "status": "FINISHED",
-                **tts
-            }
+            return {"status": "FINISHED", **tts,"current_index":idx}
 
-        exercise_id, set_count, reps, rest_sec, duration_sec, description, caution = exercise
+        (
+            exercise_id,
+            set_count,
+            reps,
+            rest_sec,
+            duration_sec,
+            name,
+            description,
+            caution
+        ) = exercise
 
         exercise_dict = {
             "exercise_id": exercise_id,
+            "name": name,
             "sets": set_count,
             "reps": reps,
             "rest_sec": rest_sec,
@@ -193,12 +235,12 @@ def next_step(coaching_session_id: str):
         }
 
         # =========================
-        # 🔀 분기 로직
-        # =========================
-
         # 4️⃣ 같은 운동 - 다음 세트
-        if current_set < set_count:
-            next_set = current_set + 1
+        # =========================
+        print(current_set, set_count, set_count+1)
+        if current_set < set_count+1:
+            print("동작!")
+            next_set = current_set  + 1
 
             cur.execute("""
                 UPDATE coaching_sessions
@@ -206,65 +248,61 @@ def next_step(coaching_session_id: str):
                     updated_at = NOW()
                 WHERE id = %s
             """, (next_set, coaching_session_id))
-
-            text = generate_next_text(exercise_dict, next_set)
+     
+            text = generate_next_text(exercise_dict, next_set-1)
             tts = build_tts_payload(text)
 
             conn.commit()
             return {
+                "status": "RUNNING",
                 "coaching_session_id": coaching_session_id,
+                "current_step": idx + 1,
+                "current_set": next_set,
                 "exercise": exercise_dict,
-                **tts
+                **tts,
+                "current_index":idx
             }
-
-        # 5️⃣ 마지막 세트 종료 → 휴식
-        elif current_set == set_count:
-            cur.execute("""
-                UPDATE coaching_sessions
-                SET current_set = %s,
-                    updated_at = NOW()
-                WHERE id = %s
-            """, (current_set + 1, coaching_session_id))
-
-            text = generate_rest_text(rest_sec)
-            tts = build_tts_payload(text)
-
-            conn.commit()
-            return {
-                "coaching_session_id": coaching_session_id,
-                "exercise": exercise_dict,
-                **tts
-            }
-
-        # 6️⃣ 다음 운동으로 이동
         else:
             cur.execute("""
                 UPDATE coaching_sessions
                 SET current_exercise_index = %s,
-                    current_set = 1,
+                    current_set = 0,
                     updated_at = NOW()
                 WHERE id = %s
-            """, (current_exercise_index + 1, coaching_session_id))
-
-            intro_text = generate_exercise_intro_text(exercise_dict)
-            set_text = generate_next_text(exercise_dict, 1)
-
-            # 설명 + 주의 + 세트 시작을 한 번에
-            full_text = f"{intro_text} {set_text}".strip()
-
-            tts = build_tts_payload(full_text)
-
+            """, (idx+1, coaching_session_id))
             conn.commit()
-            return {
-                "coaching_session_id": coaching_session_id,
-                "exercise": exercise_dict,
-                **tts
-            }
+            current_set = 1
+            if status != "RUNNING":
+                return {
+                    "status": status,
+                    "current_index":idx
+                    }
+            
+        # =========================
+        # 5️⃣ 마지막 세트 종료 → 휴식
+        # =========================
+        cur.execute("""
+            UPDATE coaching_sessions
+            SET current_set = %s,
+                updated_at = NOW()
+            WHERE id = %s
+        """, (current_set, coaching_session_id))
+
+        text = generate_rest_text(rest_sec)
+        tts = build_tts_payload(text)
+
+        conn.commit()
+        return {
+            "status": "REST",
+            "coaching_session_id": coaching_session_id,
+            "current_step": idx + 1,
+            "exercise": exercise_dict,
+            **tts,
+            "current_index":idx
+        }
 
     finally:
         conn.close()
-
-
 
 # ===========================
 # CANCEL COACHING
