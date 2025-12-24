@@ -138,21 +138,35 @@ class ChatGenerator:
 
         exercise_rec = health_info.get("exercise_recommendation", {})
 
-        # 캐릭터별 한줄 인트로
+        # ========== 5가지 전문 캐릭터 + 레거시 캐릭터 인트로/아웃트로 ==========
         intros = {
+            # 새로운 5가지 전문 캐릭터
+            "default": "오늘의 맞춤 루틴이에요! 💪",
+            "trainer": "자, 오늘 근육 파괴 메뉴다! 🏋️",
+            "yoga": "오늘의 수련을 시작해볼까요? 🧘",
+            "cardio": "심박수 올리러 가볼까요?! 🏃",
+            "diet": "오늘의 운동 + 영양 가이드예요! 🥗",
+            # 레거시 캐릭터
             "devil_coach": "인간, 오늘 메뉴다!",
             "angel_coach": "오늘의 루틴이에요 ✨",
             "booster_coach": "렛츠고!! 🔥",
         }
 
         outros = {
+            # 새로운 5가지 전문 캐릭터
+            "default": "자세에 집중하며 진행해봐요! 화이팅! 💪",
+            "trainer": "끝나면 단백질 30g 섭취 잊지 마! 💪",
+            "yoga": "호흡에 집중하며 천천히. 나마스테 🙏",
+            "cardio": "쿨다운 5분 잊지 마세요! 🔥",
+            "diet": "운동 후 30분 내 단백질 섭취! 🍗",
+            # 레거시 캐릭터
             "devil_coach": "각오해라!",
             "angel_coach": "화이팅! 💪",
             "booster_coach": "파워!! 🎉",
         }
 
-        intro = intros.get(character, intros["booster_coach"])
-        outro = outros.get(character, outros["booster_coach"])
+        intro = intros.get(character, intros["default"])
+        outro = outros.get(character, outros["default"])
 
         # 운동 목록 (간소화)
         exercise_lines = []

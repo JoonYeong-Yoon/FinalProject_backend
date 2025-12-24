@@ -8,6 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.file_upload_api import router as file_upload_router
 from app.api.auto_upload_api import router as auto_upload_router
+from app.api.app_api import router as app_router
 from app.api.similar_api import router as similar_router
 from app.api.chat_api import router as chat_router
 from app.api.user_api import router as user_router
@@ -48,6 +49,7 @@ app.add_middleware(
 # ==========================
 app.include_router(file_upload_router)
 app.include_router(auto_upload_router)
+app.include_router(app_router)
 app.include_router(similar_router)
 app.include_router(chat_router)
 app.include_router(user_router)
