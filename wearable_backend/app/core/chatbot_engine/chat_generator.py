@@ -281,11 +281,11 @@ class ChatGenerator:
             health_interpretation = interpret_health_data(top_raw)
 
             routine_result = run_llm_analysis(
+                user_id=user_id,
                 summary={
                     "raw": top_raw,
                     "summary_text": similar[0].get("summary_text", ""),
                 },
-                rag_result={"similar_days": similar},
                 difficulty_level="중",
                 duration_min=30,
             )
